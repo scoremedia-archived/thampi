@@ -85,6 +85,7 @@ def match_str(a_str, a_pattern):
 
 def thampi_init(all_config: Dict):
     data = dict()
+    data['dev'] = all_config
     data['staging'] = settings(all_config)
     data['production'] = settings(all_config)
 
