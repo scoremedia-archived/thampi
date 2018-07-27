@@ -1,6 +1,6 @@
 ZAPPA_FILE_NAME = 'zappa_settings.json'
 FLASK_FILE = 'flask_api.py'
-thampi_APP_FILE = 'thampi-app.py'
-thampi_APP = 'thampi-app.app'
+THAMPI_APP_FILE = 'thampi-app.py'
+THAMPI_APP = 'thampi-app.app'
 PROJECT_NAME = 'project_name'
 REGION = 'aws_region'

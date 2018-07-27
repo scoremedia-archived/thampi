@@ -16,6 +16,7 @@ import requests
 import slugify
 import datetime
 from thampi.lib import aws
+import re
 
 DEV_ENVIRONMENT = 'dev'
 
@@ -37,59 +38,80 @@ PYTHON_VERSION_STR = 'python3.6'
 LAMBDA_IMAGE = f'lambci/lambda:build-{PYTHON_VERSION_STR}'
 SRC_PATH = '/src'
 
+NAME_PATTERN_STRING = '^[a-zA-Z0-9_-]+$'
+name_pattern = re.compile(NAME_PATTERN_STRING)
 
-def thampi_init():
-    '''
-    Read Zappa file. If it does not exist, raise file not found exception
-    take dev settings, and create staging and production and add default settings
-    tmp store the zappa_settings file
-    write the new zappa_settings file
-    delete the temp zappa_settings file
-    :return:
-    '''
-    # cwd = Path(os.getcwd())
-    file_name = constants.ZAPPA_FILE_NAME
-    # zappa_settings_path = cwd / file_name
-    #
-    # if not zappa_settings_path.is_file():
-    #     raise ValueError(f"Expect {file_name} to be in the current working directory. Run 'thampi init' first.")
-    #
-    # # with open(zappa_settings_path) as f:
-    # #     data = json.load(f)
-    # data = json.load(zappa_settings_path.open())
-    # zappa_file = constants.ZAPPA_FILE_NAME
 
-    data = read_zappa(default_zappa_settings_path())
-    dev_environment = 'dev'
-    if dev_environment not in data:
-        raise ValueError(
-            f"Didn't find {dev_environment} as a key in {file_name}.\n"
-            f"- Delete {file_name}\n"
-            f"- Run 'thampi init' again and keep dev as the default environment/stage")
-    dev_data = data[dev_environment]
-    data['staging'] = settings(data, dev_data, 'staging')
-    data['production'] = settings(data, dev_data, 'production')
+def match_str(a_str, a_pattern):
+    if a_pattern.match(a_str):
+        return True
+    raise ValueError(f"String {a_str} does not match pattern:{a_pattern.pattern}")
+
+
+# def thampi_init():
+#     '''
+#     Read Zappa file. If it does not exist, raise file not found exception
+#     take dev settings, and create staging and production and add default settings
+#     tmp store the zappa_settings file
+#     write the new zappa_settings file
+#     delete the temp zappa_settings file
+#     :return:
+#     '''
+#     # cwd = Path(os.getcwd())
+#     file_name = constants.ZAPPA_FILE_NAME
+#     # zappa_settings_path = cwd / file_name
+#     #
+#     # if not zappa_settings_path.is_file():
+#     #     raise ValueError(f"Expect {file_name} to be in the current working directory. Run 'thampi init' first.")
+#     #
+#     # # with open(zappa_settings_path) as f:
+#     # #     data = json.load(f)
+#     # data = json.load(zappa_settings_path.open())
+#     # zappa_file = constants.ZAPPA_FILE_NAME
+#
+#     data = read_zappa(default_zappa_settings_path())
+#     dev_environment = 'dev'
+#     if dev_environment not in data:
+#         raise ValueError(
+#             f"Didn't find {dev_environment} as a key in {file_name}.\n"
+#             f"- Delete {file_name}\n"
+#             f"- Run 'thampi init' again and keep dev as the default environment/stage")
+#     dev_data = data[dev_environment]
+#     data['staging'] = settings(data, dev_data, 'staging')
+#     data['production'] = settings(data, dev_data, 'production')
+#
+#     with open(default_zappa_settings_path(), 'w') as f:
+#         json.dump(data, f, indent=4, ensure_ascii=False)
+
+def thampi_init(all_config: Dict):
+    data = dict()
+    data['staging'] = settings(all_config)
+    data['production'] = settings(all_config)
 
     with open(default_zappa_settings_path(), 'w') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
-def init():
-    # from click.testing import CliRunner
-    from zappa.cli import handle
-    # runner = CliRunner()
-    # result = runner.invoke(handler, ['init'])
-    # print(result)
-    cwd = Path(os.getcwd())
-    thampi_app = cwd / constants.thampi_APP
+# def init():
+#     # from click.testing import CliRunner
+#     from zappa.cli import handle
+#     # runner = CliRunner()
+#     # result = runner.invoke(handler, ['init'])
+#     # print(result)
+#     cwd = Path(os.getcwd())
+#     thampi_app = cwd / constants.THAMPI_APP
+#
+#     try:
+#         thampi_app.touch()
+#         handle()
+#
+#     except SystemExit:
+#         thampi_app.unlink()
+#         thampi_init()
 
-    try:
-        thampi_app.touch()
-        handle()
 
-    except SystemExit:
-        thampi_app.unlink()
-        thampi_init()
+def init(all_config: Dict):
+    thampi_init(all_config)
 
 
 def save_dependencies(path: Path):
@@ -419,7 +441,7 @@ def setup_working_directory(a_uuid, project_name, dependency_file: str = None, p
     src = f'{home}/{AWS_FOLDER}'
     shutil.copytree(src, dest)
     shutil.copyfile(dep_path, os.path.join(project_working_dir, thampi_req_file))
-    shutil.copyfile(flask_api_file, project_working_dir / constants.thampi_APP_FILE)
+    shutil.copyfile(flask_api_file, project_working_dir / constants.THAMPI_APP_FILE)
 
     if not dependency_file:
         dep_path.unlink()
@@ -511,8 +533,8 @@ def get_current_venv():
     return venv
 
 
-def settings(data, dev_data, environment):
-    return dicts(dev_data, THAMPI_ZAPPA_SETTINGS, data.get(environment, dict()))
+def settings(all_config):
+    return dicts(all_config, THAMPI_ZAPPA_SETTINGS)
 
 
 def project_exists(environment: str, project_name: str, region_name: str) -> bool:
@@ -528,4 +550,5 @@ if __name__ == '__main__':
     from thampi.lib import aws
     from pprint import pprint
 
-    print(project_exists('staging', 'thampi-trial-x', 'us-east-1'))
+    # ['__class__', '__copy__', '__deepcopy__', '__delattr__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', 'findall', 'finditer', 'flags', 'fullmatch', 'groupindex', 'groups', 'match', 'pattern', 'scanner', 'search', 'split', 'sub', 'subn']
+    print(name_pattern.pattern)
