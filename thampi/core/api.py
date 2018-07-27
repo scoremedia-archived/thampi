@@ -256,11 +256,9 @@ def serve(environment: str,
     project_working_dir, thampi_req_file = setup_working_dir(a_uuid, project_name, dependency_file, project_dir)
     if not project_exists_func(environment, project_name, region_name):
         # if not project_exists(environment, project_name, region_name):
-        print('In Zappa Deploy')
         deploy_action = f'zappa deploy {environment}'
         docker_run(a_uuid, project_name, project_working_dir, thampi_req_file, deploy_action)
     else:
-        print('In Zappa Update')
         zappa_action = f'zappa update {environment}'
         docker_run(a_uuid, project_name, project_working_dir, thampi_req_file, zappa_action)
 
@@ -425,7 +423,7 @@ def setup_working_directory(a_uuid, project_name, dependency_file: str = None, p
         save_dependencies(dep_path)
 
     # TODO: This is temporary, remove the remove_thampi method!
-    remove_thampi(dep_path)
+    # remove_thampi(dep_path)
     project_home_path = determine_project_home_path(PROJECT_ENV_VARIABLE, DEFAULT_HOME)
     # TODO: Duplication below with thampi_init
     # project_name = get_project_name(environment)

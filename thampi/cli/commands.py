@@ -35,6 +35,8 @@ def init():  # pragma: no cover
                           s3_bucket=bucket)
         all_config = util.dicts(core_dict, input_dict)
         api.init(all_config)
+        click.echo(
+            "A file zappa_settings.json has been created. If you made a mistake, delete it and run `thampi init` again")
     except SystemExit as e:  # pragma: no cover
         sys.exit(e.code)
     except KeyboardInterrupt:  # pragma: no cover
