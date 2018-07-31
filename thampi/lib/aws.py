@@ -71,3 +71,14 @@ def upload_stream_to_s3(stream, bucket, key):
 def create_bucket(bucket: str):
     s3 = resource('s3')
     s3.create_bucket(Bucket=bucket)
+
+
+def get_api_id(lambda_name, region_name):
+    """
+    Given a lambda_name, return the API id.
+    """
+    cf_client = client('cloudformation', dict(region_name=region_name))
+    response = cf_client.describe_stack_resource(StackName=lambda_name, LogicalResourceId='Api')
+    return response['StackResourceDetail'].get('PhysicalResourceId', None)
+
+

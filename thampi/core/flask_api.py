@@ -13,7 +13,7 @@ global_properties = thampi_instance.load_properties()
 @app.route(thampi_instance.predict_route(), methods=['POST'])
 def index():
     args = json.loads(request.data)
-    result = global_model.predict(args, thampi_instance.get_context())
+    result = global_model.predict(args.get('data'), thampi_instance.get_context())
     return jsonify(dict(properties=global_properties,
                         result=result))
     # return jsonify(dict(properties=properties, prediction=prediction))

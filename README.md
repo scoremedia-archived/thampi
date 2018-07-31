@@ -1,6 +1,6 @@
 # thampi
 
-Create a Machine Learning Prediction Server on AWS Lambda.
+[Experimental. Breaking Changes Possible] Create a Machine Learning Prediction Server on AWS Lambda.
 
 
 
@@ -12,5 +12,4 @@ To use it:
 
 
 ### Credits
-* Andrew Konrad(https://www.linkedin.com/in/andrewkonrad/) for supporting this project.
-* theScore Inc for providing the resources required.
+* Andrew Konrad and theScore Inc. for supporting this project.

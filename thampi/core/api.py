@@ -1,28 +1,29 @@
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Callable
 
 from thampi import core
 from thampi.core import constants
+from thampi.core.model import Model
+from thampi.core import helper
 import json
 from thampi.lib import util
+from thampi.lib import aws
 from thampi.lib.util import dicts
 import subprocess
 import docker
-from pprint import pprint
-import uuid
+
 import shutil
-import os
 import requests
 import slugify
 import datetime
-from thampi.lib import aws
+import cloudpickle
+import os
+
 import re
 
 DEV_ENVIRONMENT = 'dev'
 
-ZAPPA_BUCKET = 's3_bucket'
 AWS_REGION = 'aws_region'
-THAMPI = 'thampi'
 
 PROJECT_ENV_VARIABLE = 'THAMPI_HOME'
 
@@ -89,7 +90,7 @@ def thampi_init(all_config: Dict):
     data['staging'] = settings(all_config)
     data['production'] = settings(all_config)
 
-    with open(default_zappa_settings_path(), 'w') as f:
+    with open(helper.default_zappa_settings_path(), 'w') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
@@ -118,15 +119,6 @@ def init(all_config: Dict):
 def save_dependencies(path: Path):
     check_venv()
     subprocess.run(f'pip freeze > {str(path)}', shell=True)
-
-
-def read_zappa_settings(zappa_settings_path: Path) -> Dict[str, Dict[str, str]]:
-    if not zappa_settings_path.is_file():
-        raise ValueError(
-            f"Expect {zappa_settings_path} to be in the current working directory. Run 'thampi init' first.")
-
-    with zappa_settings_path.open() as f:
-        return json.load(f)
 
 
 def remove_thampi(tmp_file):
@@ -206,66 +198,97 @@ def get_project_name(environment, zappa_settings):
     return zappa_settings[environment][constants.PROJECT_NAME]
 
 
+def save(model: Model,
+         name: str,
+         path: str = None,
+         utc_time_trained: datetime.datetime = None,
+         instance_id: str = None,
+         tags: Dict = None,
+         now_func: Callable[[], datetime.datetime] = None,
+         uuid_str_func: Callable[[], str] = None):
+    now_func = now_func or util.utc_now_str
+    uuid_str_func = uuid_str_func or util.uuid
+
+    path = path or os.getcwd()
+    model_dir = os.path.join(path, name)
+
+    os.makedirs(model_dir, exist_ok=True)
+
+    with open(helper.model_path(model_dir), "wb") as f:
+        cloudpickle.dump(model, f)
+
+    opts = util.optional(tags=tags)
+    fixed = dict(training_time_utc=utc_time_trained.isoformat() if utc_time_trained else now_func(),
+                 instance_id=instance_id or uuid_str_func())
+
+    properties = util.dicts(fixed, opts)
+
+    with open(helper.properties_path(model_dir), "w") as f:
+        json.dump(properties, f, indent=4, ensure_ascii=False)
+
+
 def serve(environment: str,
-          model_file: str,
-          name: str,
-          version: str,
-          training_time_utc: datetime = None,
-          instance_id: str = None,
+          model_dir: str,
           dependency_file: str = None,
           zappa_settings_file: str = None,
           project_dir: str = None,
-          docker_run=None,
-          setup_working_dir=None,
+          utc_time_served: datetime.datetime = None,
+          docker_run_func=None,
+          setup_working_dir_func=None,
           clean_up_func=None,
           uuid_str_func=None,
           aws_module=None,
           project_exists_func=None,
-          now_func=None
+          now_func=None,
+          read_properties_func: Callable[[str], Dict] = None
           ):
-    docker_run = docker_run or run_zappa_command_in_docker
-    setup_working_dir = setup_working_dir or setup_working_directory
+    docker_run_func = docker_run_func or run_zappa_command_in_docker
+    setup_working_dir_func = setup_working_dir_func or setup_working_directory
     clean_up_func = clean_up_func or clean_up
     uuid_str_func = uuid_str_func or util.uuid
     aws_module = aws_module or aws
-    project_exists_func = project_exists_func or project_exists
+    project_exists_func = project_exists_func or helper.project_exists
     now_func = now_func or util.utc_now_str
+    read_properties_func = read_properties_func or read_properties
 
-    zappa_settings_p = zappa_settings_file or default_zappa_settings_path()
-    zappa_settings = read_zappa(zappa_settings_p)
+    zappa_settings_p = zappa_settings_file or helper.default_zappa_settings_path()
+    utc_time_served = utc_time_served.isoformat() if utc_time_served else now_func()
+
+    zappa_settings = helper.read_zappa(zappa_settings_p)
 
     clean_up_func(DEV_ENVIRONMENT, zappa_settings)
 
     a_uuid = uuid_str_func()
 
     project_name = zappa_settings[environment][constants.PROJECT_NAME]
-    bucket = zappa_settings[environment][ZAPPA_BUCKET]
+    bucket = zappa_settings[environment][constants.ZAPPA_BUCKET]
     region_name = zappa_settings[environment][AWS_REGION]
 
-    properties = dict(name=name,
-                      version=version,
-                      training_time_utc=str(training_time_utc) if training_time_utc else now_func(),
-                      instance_id=instance_id or uuid_str_func())
-
-    stream = json.dumps(properties)
     aws_module.create_bucket(bucket)
-    aws_module.upload_stream_to_s3(stream, bucket, properties_key(environment, project_name))
 
-    key = model_key(environment, project_name)
-    aws_module.upload_to_s3(model_file, bucket, key)
+    training_properties = read_properties_func(model_dir)
 
-    project_working_dir, thampi_req_file = setup_working_dir(a_uuid, project_name, dependency_file, project_dir)
+    properties = dict(training_properties, utc_time_served=utc_time_served)
+    stream = json.dumps(properties)
+    aws_module.upload_stream_to_s3(stream, bucket, helper.properties_key(environment, project_name))
+
+    model_key = helper.model_key(environment, project_name)
+    aws_module.upload_to_s3(helper.model_path(model_dir), bucket, model_key)
+
+    project_working_dir, thampi_req_file = setup_working_dir_func(a_uuid, project_name, dependency_file, project_dir)
     if not project_exists_func(environment, project_name, region_name):
         # if not project_exists(environment, project_name, region_name):
         deploy_action = f'zappa deploy {environment}'
-        docker_run(a_uuid, project_name, project_working_dir, thampi_req_file, deploy_action)
+        docker_run_func(a_uuid, project_name, project_working_dir, thampi_req_file, deploy_action)
     else:
         zappa_action = f'zappa update {environment}'
-        docker_run(a_uuid, project_name, project_working_dir, thampi_req_file, zappa_action)
+        docker_run_func(a_uuid, project_name, project_working_dir, thampi_req_file, zappa_action)
 
 
-def default_zappa_settings_path():
-    return zappa_settings_path(constants.ZAPPA_FILE_NAME)
+def read_properties(model_dir):
+    with open(helper.properties_path(model_dir)) as f:
+        training_properties = json.load(f)
+    return training_properties
 
 
 # def serve(environment: str, model: str):
@@ -274,19 +297,19 @@ def default_zappa_settings_path():
 #     project_working_dir, thampi_req_file, project_name = setup_working_directory(a_uuid, environment, zappa_settings)
 
 # (thampi-env) ➜  thampi PYTHONPATH=. python thampi/cli/cli.py predict staging   --args a=1,b=2,c=33
-def predict(environment: str, args: Dict) -> Dict:
+def predict(environment: str, data: Dict) -> Dict:
     import sys
-    zappa_settings = read_zappa(default_zappa_settings_path())
+    zappa_settings = helper.read_zappa(helper.default_zappa_settings_path())
     project_name = zappa_settings[environment][constants.PROJECT_NAME]
     region_name = zappa_settings[environment][constants.REGION]
-    a_lambda_name = lambda_name(environment, project_name)
+    a_lambda_name = helper.lambda_name(environment, project_name)
 
     # TODO: get api url for project/environment
-    url = get_api_url(a_lambda_name, environment, region_name)
+    url = helper.get_api_url(a_lambda_name, environment, region_name)
     predict_url = url + '/' + project_name + '/' + 'predict'
     headers = {"Content-type": "application/json"}
     try:
-        result = requests.post(predict_url, headers=headers, data=json.dumps(args))
+        result = requests.post(predict_url, headers=headers, data=json.dumps(dict(data=data)))
         result.raise_for_status()
         return result.json()
     except requests.exceptions.RequestException as e:  # This is the correct syntax
@@ -295,72 +318,16 @@ def predict(environment: str, args: Dict) -> Dict:
         sys.exit(1)
 
 
-def lambda_name(environment, project_name):
-    return slugify.slugify(project_name + '-' + environment)
-
-
 def info(environment: str) -> Dict:
-    zappa_settings = read_zappa(default_zappa_settings_path())
+    zappa_settings = helper.read_zappa(helper.default_zappa_settings_path())
     project_name = zappa_settings[environment][constants.PROJECT_NAME]
     region_name = zappa_settings[environment][constants.REGION]
     lambda_name = slugify.slugify(project_name + '-' + environment)
 
     # TODO: get api url for project/environment
-    url = get_api_url(lambda_name, environment, region_name)
+    url = helper.get_api_url(lambda_name, environment, region_name)
     predict_url = url + '/' + project_name + '/' + 'predict'
     return dict(url=predict_url)
-
-
-def get_api_url(lambda_name, stage_name, region_name):
-    """
-    Given a lambda_name and stage_name, return a valid API URL.
-    """
-    api_id = get_api_id(lambda_name, region_name)
-    if api_id:
-        return "https://{}.execute-api.{}.amazonaws.com/{}".format(api_id, region_name, stage_name)
-    else:
-        return None
-
-
-def get_api_id(lambda_name, region_name):
-    """
-    Given a lambda_name, return the API id.
-    """
-    cf_client = aws.client('cloudformation', dict(region_name=region_name))
-    response = cf_client.describe_stack_resource(StackName=lambda_name, LogicalResourceId='Api')
-    return response['StackResourceDetail'].get('PhysicalResourceId', None)
-    # try:
-    #     cf_client = aws.client('cloudformation', dict(region_name=region_name))
-    #     response = cf_client.describe_stack_resource(StackName=lambda_name, LogicalResourceId='Api')
-    #     return response['StackResourceDetail'].get('PhysicalResourceId', None)
-    # except:  # pragma: no cover
-    #     # try:
-    #     #     # Try the old method (project was probably made on an older, non CF version)
-    #     #     response = self.apigateway_client.get_rest_apis(limit=500)
-    #     #
-    #     #     for item in response['items']:
-    #     #         if item['name'] == lambda_name:
-    #     #             return item['id']
-    #     #
-    #     #     logger.exception('Could not get API ID.')
-    #     #     return None
-    #     # except:  # pragma: no cover
-    #     #     # We don't even have an API deployed. That's okay!
-    #     #     return None
-    #     pass
-
-
-def get_bucket(environment: str) -> str:
-    zappa_settings = read_zappa(default_zappa_settings_path())
-    return zappa_settings[environment][ZAPPA_BUCKET]
-
-
-def model_key(environment: str, project_name: str) -> str:
-    return aws.s3_key(THAMPI, environment, project_name, 'model', 'current', 'model.pkl')
-
-
-def properties_key(environment: str, project_name: str) -> str:
-    return aws.s3_key(THAMPI, environment, project_name, 'model', 'current', THAMPI + '.json')
 
 
 # def model_path(environment: str, project_name: str) -> str:
@@ -407,6 +374,7 @@ def run_zappa_command_in_docker(a_uuid: str, project_name, project_working_dir, 
                               working_dir=SRC_PATH)
     print('-Logs-')
     logs = c
+    from pprint import pprint
     pprint(logs.decode().split('\n'))
     # TODO: set project_working_dir as working_dir for docker
     # TODO: Delete credentials and other files after deploy
@@ -424,7 +392,7 @@ def setup_working_directory(a_uuid, project_name, dependency_file: str = None, p
         save_dependencies(dep_path)
 
     # TODO: This is temporary, remove the remove_thampi method!
-    # remove_thampi(dep_path)
+    remove_thampi(dep_path)
     project_home_path = determine_project_home_path(PROJECT_ENV_VARIABLE, DEFAULT_HOME)
     # TODO: Duplication below with thampi_init
     # project_name = get_project_name(environment)
@@ -455,15 +423,6 @@ def thampi_req_file_name(a_uuid):
 #     data = read_zappa(constants.ZAPPA_FILE_NAME)
 #     project_name = data[environment][PROJECT_NAME]
 #     return project_name
-
-
-def read_zappa(zappa_file_path):
-    return read_zappa_settings(Path(zappa_file_path))
-
-
-def zappa_settings_path(file_name):
-    cwd = Path(os.getcwd())
-    return cwd / file_name
 
 
 def determine_project_home_path(project_env_variable: str, default_home: str) -> Path:
@@ -534,20 +493,3 @@ def get_current_venv():
 
 def settings(all_config):
     return dicts(all_config, THAMPI_ZAPPA_SETTINGS)
-
-
-def project_exists(environment: str, project_name: str, region_name: str) -> bool:
-    lambda_client = aws.client('lambda', dict(region_name=region_name))
-    try:
-        lambda_client.get_function(FunctionName=lambda_name(environment, project_name))
-        return True
-    except lambda_client.exceptions.ResourceNotFoundException as ex:
-        return False
-
-
-if __name__ == '__main__':
-    from thampi.lib import aws
-    from pprint import pprint
-
-    # ['__class__', '__copy__', '__deepcopy__', '__delattr__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', 'findall', 'finditer', 'flags', 'fullmatch', 'groupindex', 'groups', 'match', 'pattern', 'scanner', 'search', 'split', 'sub', 'subn']
-    print(name_pattern.pattern)

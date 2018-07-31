@@ -1,5 +1,5 @@
 from thampi.lib import aws
-from thampi.core import api
+from thampi.core import helper
 import os
 import json
 
@@ -9,9 +9,9 @@ class Thampi(object):
         self.app = app
         self.project_name = os.environ['PROJECT']
         self.environment = os.environ['STAGE']
-        self.bucket = api.get_bucket(self.environment)
-        self.model_key = api.model_key(self.environment, self.project_name)
-        self.properties_key = api.properties_key(self.environment, self.project_name)
+        self.bucket = helper.get_bucket(self.environment)
+        self.model_key = helper.model_key(self.environment, self.project_name)
+        self.properties_key = helper.properties_key(self.environment, self.project_name)
         self._predict_route = f'/{self.project_name}/predict'
         self._context = ThampiContext(self.app)
 

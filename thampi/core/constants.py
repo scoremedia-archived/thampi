@@ -4,3 +4,8 @@ THAMPI_APP_FILE = 'thampi-app.py'
 THAMPI_APP = 'thampi-app.app'
 PROJECT_NAME = 'project_name'
 REGION = 'aws_region'
+THAMPI = 'thampi'
+MODEL_FILE = 'model.pkl'
+
+PROPERTIES_FILE = THAMPI + '.json'
+ZAPPA_BUCKET = 's3_bucket'

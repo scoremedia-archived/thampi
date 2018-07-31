@@ -1,8 +1,6 @@
 import abc
 from typing import Dict
-from thampi.lib import util
 from thampi.core.thampi_core import ThampiContext
-from datetime import datetime
 
 
 class Model(object):

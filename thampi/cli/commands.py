@@ -154,43 +154,34 @@ def get_zappa_settings_filename(model_name: str) -> str:
 
 
 @click.command()
-@click.argument('environment')
-# @click.argument('--model_file')
-@click.option('--model_file', required=True, help='path to Python pickled model file')
-@click.option('--name', required=True, help='Name of model. e.g LinearRegression, HybridRecommender')
-@click.option('--version', required=True, help='Version of model. e.g "0.1", "1.0-alpha"')
-@click.option('--training_time_utc', required=False,
-              help='Time in UTC when it was trained. E.g. "2018-05-25T17:28:53.354"')
-@click.option('--instance_id', required=False,
-              help='An unique id to identify a trained instance of a model of the same name and version.')
+@click.argument('environment', required=False)
+# @click.argument('--model_dir')
+@click.option('--model_dir', required=True, help='path to directory containing the model.pkl file')
+@click.option('--utc_time_served', required=False,
+              help='Time in UTC when you want to show as served. E.g. "2018-05-25T17:28:53.354"')
 @click.option('--dependency_file', required=False,
               help='Path to file with all the project dependencies. This could be a requirements file.')
 @click.option('--zappa_settings_file', required=False,
               help='Path to zappa_settings.json settings file. If not provided, it is assumed to be in the current working directory.')
 @click.option('--project_dir', required=False,
               help='Path to the project root where your code is. If not provided, it is assumed to be  the current working directory.')
-# @click.option('--tags', required=False, help='JSON String. e.g. \'{ "region": "us-east-1", "author": "Raj"}\'')
 def serve(environment: str,
-          model_file: str,
-          name: str,
-          version: str,
-          training_time_utc: str = None,
-          instance_id: str = None,
+          model_dir: str,
+          utc_time_served: str = None,
           dependency_file: str = None,
           zappa_settings_file: str = None,
           project_dir: str = None):  # pragma: no cover
 
+    click.echo('..Waking up The Whale. This will take a while...')
+    check_environment_provided(environment=environment)
     try:
-        if training_time_utc:
-            training_time_utc_dt = util.parse_isoformat_str(training_time_utc)
+        if utc_time_served:
+            utc_time_served_dt = util.parse_isoformat_str(utc_time_served)
         else:
-            training_time_utc_dt = None
+            utc_time_served_dt = None
         api.serve(environment,
-                  model_file,
-                  name=name,
-                  version=version,
-                  training_time_utc=training_time_utc_dt,
-                  instance_id=instance_id,
+                  model_dir,
+                  utc_time_served=utc_time_served_dt,
                   dependency_file=dependency_file,
                   zappa_settings_file=zappa_settings_file,
                   project_dir=project_dir)
@@ -211,15 +202,15 @@ def serve(environment: str,
 
 @click.command()
 @click.argument('environment')
-@click.option('--args')
-def predict(environment: str, args):  # pragma: no cover
+@click.option('--data')
+def predict(environment: str, data):  # pragma: no cover
 
     try:
         # split_args = args.split(',')
-        # dict_args = dict([s.split('=') for s in split_args])
+        # dict_data = dict([s.split('=') for s in split_args])
         import json
-        dict_args = json.loads(args)
-        result = api.predict(environment, dict_args)
+        dict_data = json.loads(data)
+        result = api.predict(environment, dict_data)
         from pprint import pprint
         pprint(result)
     except SystemExit as e:  # pragma: no cover
@@ -258,3 +249,8 @@ def info(environment: str):  # pragma: no cover
         click.echo("\n==============\n")
 
         sys.exit(-1)
+
+
+def check_environment_provided(environment: str) -> ValueError:
+    if not environment:
+        raise ValueError('Environment required. Refer to docs.')
