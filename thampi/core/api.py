@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Callable
+from typing import Dict, Callable, List
 
 from thampi import core
 from thampi.core import constants
@@ -11,6 +11,7 @@ from thampi.lib import aws
 from thampi.lib.util import dicts
 import subprocess
 import docker
+from functools import partial
 
 import shutil
 import requests
@@ -21,6 +22,8 @@ import os
 
 import re
 
+PIP = 'pip'
+CONDA = 'conda'
 DEV_ENVIRONMENT = 'dev'
 
 AWS_REGION = 'aws_region'
@@ -94,24 +97,6 @@ def thampi_init(all_config: Dict):
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
-# def init():
-#     # from click.testing import CliRunner
-#     from zappa.cli import handle
-#     # runner = CliRunner()
-#     # result = runner.invoke(handler, ['init'])
-#     # print(result)
-#     cwd = Path(os.getcwd())
-#     thampi_app = cwd / constants.THAMPI_APP
-#
-#     try:
-#         thampi_app.touch()
-#         handle()
-#
-#     except SystemExit:
-#         thampi_app.unlink()
-#         thampi_init()
-
-
 def init(all_config: Dict):
     thampi_init(all_config)
 
@@ -132,56 +117,6 @@ def remove_thampi(tmp_file):
     with open(tmp_file, 'w') as f:
         f.writelines(lines)
 
-
-# def deploy(environment: str):
-#     clean_up(DEV_ENVIRONMENT)
-#     a_uuid = str(uuid.uuid4())
-#     # zappa_settings = clean_up('dev')
-#     file_name = constants.ZAPPA_FILE_NAME
-#     zappa_settings = read_zappa(file_name)
-#
-#     if environment == 'local':
-#         # data = zappa_settings
-#         # dev_environment = DEV_ENVIRONMENT
-#         # if dev_environment not in data:
-#         #     raise ValueError(
-#         #         f"Didn't find {dev_environment} as a key in {file_name}.\n"
-#         #         f"- Delete {file_name}\n"
-#         #         f"- Run 'thampi init' again and keep dev as the default environment/stage")
-#         # dev_data = data[dev_environment]
-#         # data['local'] = settings(data, dev_data, 'local')
-#         # project_working_dir, thampi_req_file, project_name = setup_working_directory(a_uuid, environment, data)
-#         # commands = '''
-#         #     marol_venv/bin/python ./handler_python3.py --execution_uuid {ex_uuid}
-#         #     '''.format(ex_uuid=str(execution_uuid))
-#         venv = f"venv-{a_uuid}"
-#         # commands = [
-#         #     f'cd {project_working_dir}',
-#         #     f'virtualenv -p python3 {venv}',
-#         #     f'source {venv}/bin/activate',
-#         #     'pip3 install pip==9.0.3 && pip install zappa==0.45.1',
-#         #     f'pip3 install -r {thampi_req_file}',
-#         #     f'FLASK_APP=thampi-app.py FLASK_DEBUG=1 python -m flask run'
-#         # ]
-#         # command_str = ' && '.join(commands)
-#         # from subprocess import PIPE, Popen
-#         # p = Popen('/bin/bash', shell=True, bufsize=0, stdin=PIPE, stdout=PIPE, stderr=PIPE, close_fds=True,
-#         #           universal_newlines=True)
-#         # stdout, stderr = p.communicate(command_str)
-#         # for line in stdout:
-#         #     print(">>> " + str(line.rstrip()))
-#         #     p.stdout.flush()
-#         #
-#         # for line in stderr:
-#         #     print(">>> " + str(line.rstrip()))
-#         #     p.stderr.flush()
-#         pass
-#     else:
-#         project_name = get_project_name(environment, zappa_settings)
-#         project_working_dir, thampi_req_file = setup_working_directory(a_uuid, project_name)
-#         zappa_action = f'zappa deploy {environment}'
-#         run_zappa_command_in_docker(a_uuid, project_name, project_working_dir, thampi_req_file, zappa_action)
-#
 
 def clean_up(environment, zappa_settings):
     project_home_path = determine_project_home_path(PROJECT_ENV_VARIABLE, DEFAULT_HOME)
@@ -229,7 +164,7 @@ def save(model: Model,
 
 def serve(environment: str,
           model_dir: str,
-          dependency_file: str = None,
+          dependency_file: str,
           zappa_settings_file: str = None,
           project_dir: str = None,
           utc_time_served: datetime.datetime = None,
@@ -276,13 +211,21 @@ def serve(environment: str,
     aws_module.upload_to_s3(helper.model_path(model_dir), bucket, model_key)
 
     project_working_dir, thampi_req_file = setup_working_dir_func(a_uuid, project_name, dependency_file, project_dir)
+
+    docker_run_command = partial(docker_run_func,
+                                 a_uuid=a_uuid,
+                                 project_name=project_name,
+                                 project_working_dir=project_working_dir,
+                                 thampi_req_file=thampi_req_file,
+                                 zappa_settings=zappa_settings[environment])
+
     if not project_exists_func(environment, project_name, region_name):
         # if not project_exists(environment, project_name, region_name):
         deploy_action = f'zappa deploy {environment}'
-        docker_run_func(a_uuid, project_name, project_working_dir, thampi_req_file, deploy_action)
+        docker_run_command(zappa_action=deploy_action)
     else:
-        zappa_action = f'zappa update {environment}'
-        docker_run_func(a_uuid, project_name, project_working_dir, thampi_req_file, zappa_action)
+        update_action = f'zappa update {environment}'
+        docker_run_command(zappa_action=update_action)
 
 
 def read_properties(model_dir):
@@ -334,35 +277,60 @@ def info(environment: str) -> Dict:
 #     return aws.s3_key(thampi, environment, project_name, 'model', 'current', 'model.pkl')
 
 
-def run_zappa_command_in_docker(a_uuid: str, project_name, project_working_dir, thampi_req_file, zappa_action):
+def run_zappa_command_in_docker(a_uuid: str, project_name: str, project_working_dir, thampi_req_file,
+                                zappa_settings,
+                                zappa_action):
     # project_working_dir, thampi_req_file, project_name = setup_working_directory(a_uuid, environment, zappa_settings)
-
+    venv = f"venv-{a_uuid}"
+    package_manager = zappa_settings[constants.THAMPI]['package_manager']
     src = Path(SRC_PATH)
     requirements_file_path = src / thampi_req_file
+    install_prerequisites = 'pip install pip==9.0.3'
+    install_post = 'pip install zappa==0.45.1 && pip install Flask==0.12.4 && pip install cloudpickle'
+
+    conda_commands = [
+        'unset PYTHONPATH',
+        'curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh --output /tmp/miniconda_installer.sh',
+        'bash /tmp/miniconda_installer.sh -b',
+        'mkdir /tmp/simple-pyflakes',
+        '/root/miniconda3/bin/conda create --name docker-conda python=3.6 -y',
+        'source /root/miniconda3/bin/activate docker-conda',
+        install_prerequisites,
+        f'/root/miniconda3/bin/conda env update -n docker-conda --file {requirements_file_path}',
+        install_post,
+        'export VIRTUAL_ENV=$CONDA_PREFIX'
+    ]
+
+    pip_commands = [
+        f'virtualenv {venv}',
+        f'source {venv}/bin/activate',
+        install_prerequisites,
+        f'pip install -r {requirements_file_path}',
+        install_post
+
+    ]
+
+    packager_commands = conda_commands if package_manager == CONDA else pip_commands
     volume_bindings = {
         project_working_dir: {
             'bind': SRC_PATH,
             'mode': 'rw',
         },
     }
-    venv = f"venv-{a_uuid}"
-    commands = [
-        'export LC_ALL=en_US.UTF-8',
-        'export LANG=en_US.UTF-8',
-        f'cp -r ./.aws /root',  # and delete it as if we keep it here, it will be zipped into the code zip
-        'cd /tmp',
-        'mkdir thampi && cd thampi',
-        f'mkdir {project_name} && cd {project_name}',
-        f'cd /var/runtime && rm -rf dateutil python_dateutil*.dist-info/ && cd -',
-        f'virtualenv {venv}',
-        f'source {venv}/bin/activate',
-        'pip install pip==9.0.3 && pip install zappa==0.45.1',
-        f'pip install -r {requirements_file_path}',
-        f'cd {SRC_PATH}',
-        'find . -name __pycache__ -type d -exec rm -rf {} +',
-        "find . -name '*.pyc' -delete",
-        zappa_action
-    ]
+    
+    setup = ['export LC_ALL=en_US.UTF-8',
+             'export LANG=en_US.UTF-8',
+             f'cp -r ./.aws /root',  # and delete it as if we keep it here, it will be zipped into the code zip
+             'cd /tmp',
+             'mkdir thampi && cd thampi',
+             f'mkdir {project_name} && cd {project_name}',
+             f'cd /var/runtime && rm -rf dateutil python_dateutil*.dist-info/ && cd -']
+
+    post = [f'cd {SRC_PATH}',
+            'find . -name __pycache__ -type d -exec rm -rf {} +',
+            "find . -name '*.pyc' -delete",
+            zappa_action]
+    commands = setup + packager_commands + post
     command_str = ' && '.join(commands)
     command_line = ['sh', '-c', command_str]
     client = docker.from_env()
@@ -380,17 +348,17 @@ def run_zappa_command_in_docker(a_uuid: str, project_name, project_working_dir, 
     # TODO: Delete credentials and other files after deploy
 
 
-def setup_working_directory(a_uuid, project_name, dependency_file: str = None, project_dir: str = None):
+def setup_working_directory(a_uuid, project_name, dependency_file: str, project_dir: str = None):
     flask_api_file = Path(core.__path__[0]) / constants.FLASK_FILE
 
     thampi_req_file = thampi_req_file_name(a_uuid)
-    tmp_dep_path = f'/tmp/{thampi_req_file}'
-    if dependency_file:
-        dep_path = Path(dependency_file)
-    else:
-        dep_path = Path(tmp_dep_path)
-        save_dependencies(dep_path)
-
+    # tmp_dep_path = f'/tmp/{thampi_req_file}'
+    # if dependency_file:
+    #     dep_path = Path(dependency_file)
+    # else:
+    #     dep_path = Path(tmp_dep_path)
+    #     save_dependencies(dep_path)
+    dep_path = Path(dependency_file)
     # TODO: This is temporary, remove the remove_thampi method!
     remove_thampi(dep_path)
     project_home_path = determine_project_home_path(PROJECT_ENV_VARIABLE, DEFAULT_HOME)
@@ -493,3 +461,11 @@ def get_current_venv():
 
 def settings(all_config):
     return dicts(all_config, THAMPI_ZAPPA_SETTINGS)
+
+
+def default_package_manager() -> str:
+    return PIP
+
+
+def supported_package_manager() -> List[str]:
+    return [CONDA, PIP]

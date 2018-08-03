@@ -30,9 +30,10 @@ def init():  # pragma: no cover
         model_name = get_model_name()
         profile_name, profile_region = get_profile_name_and_region()
         bucket = get_bucket()
+        package_manager = get_package_manager()
         # zappa_settings_filename = get_zappa_settings_filename(model_name)
         input_dict = dict(project_name=model_name, profile_name=profile_name, aws_region=profile_region,
-                          s3_bucket=bucket)
+                          s3_bucket=bucket, thampi=dict(package_manager=package_manager))
         all_config = util.dicts(core_dict, input_dict)
         api.init(all_config)
         click.echo(
@@ -105,6 +106,20 @@ def get_profile_name_and_region():
     return profile_name, profile_region
 
 
+def get_package_manager():
+    click.echo('-----------------')
+    default_manager = api.default_package_manager()
+    supported_managers = api.supported_package_manager()
+    while True:
+
+        package_manager = input(
+            f"Enter package manager:{supported_managers}(default: {default_manager}):") or default_manager
+        if package_manager in supported_managers:
+            return package_manager
+        else:
+            click.echo(f"Only {supported_managers} are supported")
+
+
 def get_model_name():
     while True:
         click.echo("Welcome to Thampi!")
@@ -159,8 +174,8 @@ def get_zappa_settings_filename(model_name: str) -> str:
 @click.option('--model_dir', required=True, help='path to directory containing the model.pkl file')
 @click.option('--utc_time_served', required=False,
               help='Time in UTC when you want to show as served. E.g. "2018-05-25T17:28:53.354"')
-@click.option('--dependency_file', required=False,
-              help='Path to file with all the project dependencies. This could be a requirements file.')
+@click.option('--dependency_file', required=True,
+              help='Path to pip requirements file or manually cleaned conda yaml file. See https://conda.io/docs/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually')
 @click.option('--zappa_settings_file', required=False,
               help='Path to zappa_settings.json settings file. If not provided, it is assumed to be in the current working directory.')
 @click.option('--project_dir', required=False,

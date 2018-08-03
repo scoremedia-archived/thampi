@@ -47,7 +47,7 @@ class MyTestCase(unittest.TestCase):
         # When
         api.serve(environment,
                   model_dir,
-                  dependency_file=dependency_file,
+                  dependency_file,
                   zappa_settings_file=zappa_settings_path,
                   project_dir=project_dir,
                   docker_run_func=docker_run,
@@ -73,8 +73,12 @@ class MyTestCase(unittest.TestCase):
 
         aws_module.upload_stream_to_s3.assert_called_once_with(stream, S3_BUCKET,
                                                                f'thampi/{environment}/{project_name}/model/current/thampi.json')
-        docker_run.assert_called_once_with(a_uuid, project_name, thampi_working_dir, thampi_req_file,
-                                           f'zappa update {environment}')
+        docker_run.assert_called_once_with(a_uuid=a_uuid,
+                                           project_name=project_name,
+                                           project_working_dir=thampi_working_dir,
+                                           thampi_req_file=thampi_req_file,
+                                           zappa_action=f'zappa update {environment}',
+                                           zappa_settings=data['dev'])
         project_exists_func.assert_called_once_with(environment, project_name, AWS_REGION)
 
         # Cleanup
