@@ -27,6 +27,7 @@ def init():  # pragma: no cover
                  "runtime": "python3.6"}
     try:
         # api.init()
+        api.check_init_variant()
         model_name = get_model_name()
         profile_name, profile_region = get_profile_name_and_region()
         bucket = get_bucket()
@@ -38,6 +39,41 @@ def init():  # pragma: no cover
         api.init(all_config)
         click.echo(
             "A file zappa_settings.json has been created. If you made a mistake, delete it and run `thampi init` again")
+    except SystemExit as e:  # pragma: no cover
+        sys.exit(e.code)
+    except KeyboardInterrupt:  # pragma: no cover
+        sys.exit(130)
+    except Exception as e:
+
+        click.echo("Oh no! An " + click.style("error occurred", fg='red', bold=True) + "! :(")
+        click.echo("\n==============\n")
+        import traceback
+        traceback.print_exc()
+        click.echo("\n==============\n")
+
+        sys.exit(-1)
+
+
+@click.command()
+@click.option('--scope', required=True,
+              type=click.Choice(['all', 'project']), help='path to directory containing the model.pkl file')
+def clean(scope: str):  # pragma: no cover
+    """
+    Clean up Thampi
+    """
+
+    try:
+        if scope == 'project':
+
+            click.echo(input(f"This will delete the following project related files:\n"
+                             f"Locally:{api.working_project_dir()}\n"
+                             f"S3:{api.s3_project_prefix()}\n"
+                             f"Are you sure?: (default 'n') [y/n]:") or 'n')
+        elif scope == 'all':
+            click.echo(input(f"This will delete the following thampi related artifacts:\n"
+                             f"Locally:{project_home}\n"
+                             f"S3 Bucket:{s3_bucket}\n"
+                             f"Are you sure?: (default 'n') [y/n]:") or 'n')
     except SystemExit as e:  # pragma: no cover
         sys.exit(e.code)
     except KeyboardInterrupt:  # pragma: no cover
@@ -188,7 +224,6 @@ def serve(environment: str,
           project_dir: str = None):  # pragma: no cover
 
     click.echo('..Waking up The Whale. This will take a while...')
-    check_environment_provided(environment=environment)
     try:
         if utc_time_served:
             utc_time_served_dt = util.parse_isoformat_str(utc_time_served)
@@ -221,8 +256,6 @@ def serve(environment: str,
 def predict(environment: str, data):  # pragma: no cover
 
     try:
-        # split_args = args.split(',')
-        # dict_data = dict([s.split('=') for s in split_args])
         import json
         dict_data = json.loads(data)
         result = api.predict(environment, dict_data)
@@ -264,8 +297,3 @@ def info(environment: str):  # pragma: no cover
         click.echo("\n==============\n")
 
         sys.exit(-1)
-
-
-def check_environment_provided(environment: str) -> ValueError:
-    if not environment:
-        raise ValueError('Environment required. Refer to docs.')

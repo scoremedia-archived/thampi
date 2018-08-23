@@ -38,6 +38,7 @@ THAMPI_ZAPPA_SETTINGS = dict(keep_warm=True,
                              timeout_seconds=300)
 
 AWS_FOLDER = '.aws'
+SSH_FOLDER = '.ssh'
 PYTHON_VERSION_STR = 'python3.6'
 LAMBDA_IMAGE = f'lambci/lambda:build-{PYTHON_VERSION_STR}'
 SRC_PATH = '/src'
@@ -97,6 +98,14 @@ def thampi_init(all_config: Dict):
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
+def check_init_variant(zappa_settings_path: str = None):
+    zappa_settings_path = zappa_settings_path or os.path.join(os.getcwd(), constants.ZAPPA_FILE_NAME)
+    zappa_file = Path(zappa_settings_path)
+
+    if zappa_file.exists():
+        raise ValueError(f'{constants.ZAPPA_FILE_NAME} already exists. Delete it and run again.')
+
+
 def init(all_config: Dict):
     thampi_init(all_config)
 
@@ -119,14 +128,29 @@ def remove_thampi(tmp_file):
 
 
 def clean_up(environment, zappa_settings):
+    base_path = working_project_directory(environment, zappa_settings)
+    if base_path.exists():
+        shutil.rmtree(str(base_path))
+    os.makedirs(str(base_path))
+
+
+def working_project_dir(environment=DEV_ENVIRONMENT, zappa_settings_file=None):
+    zappa_settings = read_zappa_file(zappa_settings_file)
+    return working_project_directory(environment, zappa_settings)
+
+
+def s3_project_prefix(environment=DEV_ENVIRONMENT, zappa_settings_file=None):
+    zappa_settings = read_zappa_file(zappa_settings_file)
+    return None
+
+
+def working_project_directory(environment, zappa_settings):
     project_home_path = determine_project_home_path(PROJECT_ENV_VARIABLE, DEFAULT_HOME)
     # file_name = constants.ZAPPA_FILE_NAME
     # zappa_settings = read_zappa(zappa_settings_file)
     project = get_project_name(environment, zappa_settings)
     base_path = project_home_path / project
-    if base_path.exists():
-        shutil.rmtree(str(base_path))
-    os.makedirs(str(base_path))
+    return base_path
 
 
 def get_project_name(environment, zappa_settings):
@@ -155,8 +179,8 @@ def save(model: Model,
     opts = util.optional(tags=tags)
     fixed = dict(training_time_utc=utc_time_trained.isoformat() if utc_time_trained else now_func(),
                  instance_id=instance_id or uuid_str_func())
-
-    properties = util.dicts(fixed, opts)
+    meta = dict(thampi_data_version='0.1')
+    properties = util.dicts(meta, fixed, opts)
 
     with open(helper.properties_path(model_dir), "w") as f:
         json.dump(properties, f, indent=4, ensure_ascii=False)
@@ -177,6 +201,8 @@ def serve(environment: str,
           now_func=None,
           read_properties_func: Callable[[str], Dict] = None
           ):
+    project_working_dir = None
+    check_environment_provided(environment=environment)
     docker_run_func = docker_run_func or run_zappa_command_in_docker
     setup_working_dir_func = setup_working_dir_func or setup_working_directory
     clean_up_func = clean_up_func or clean_up
@@ -185,11 +211,9 @@ def serve(environment: str,
     project_exists_func = project_exists_func or helper.project_exists
     now_func = now_func or util.utc_now_str
     read_properties_func = read_properties_func or read_properties
-
-    zappa_settings_p = zappa_settings_file or helper.default_zappa_settings_path()
     utc_time_served = utc_time_served.isoformat() if utc_time_served else now_func()
 
-    zappa_settings = helper.read_zappa(zappa_settings_p)
+    zappa_settings = read_zappa_file(zappa_settings_file)
 
     clean_up_func(DEV_ENVIRONMENT, zappa_settings)
 
@@ -210,22 +234,36 @@ def serve(environment: str,
     model_key = helper.model_key(environment, project_name)
     aws_module.upload_to_s3(helper.model_path(model_dir), bucket, model_key)
 
-    project_working_dir, thampi_req_file = setup_working_dir_func(a_uuid, project_name, dependency_file, project_dir)
+    try:
+        project_working_dir, thampi_req_file = setup_working_dir_func(a_uuid, project_name, dependency_file,
+                                                                      project_dir)
+        docker_run_command = partial(docker_run_func,
+                                     a_uuid=a_uuid,
+                                     project_name=project_name,
+                                     project_working_dir=project_working_dir,
+                                     thampi_req_file=thampi_req_file,
+                                     zappa_settings=zappa_settings[environment])
 
-    docker_run_command = partial(docker_run_func,
-                                 a_uuid=a_uuid,
-                                 project_name=project_name,
-                                 project_working_dir=project_working_dir,
-                                 thampi_req_file=thampi_req_file,
-                                 zappa_settings=zappa_settings[environment])
+        if not project_exists_func(environment, project_name, region_name):
+            # if not project_exists(environment, project_name, region_name):
+            deploy_action = f'zappa deploy {environment}'
+            docker_run_command(zappa_action=deploy_action)
+        else:
+            update_action = f'zappa update {environment}'
+            docker_run_command(zappa_action=update_action)
+    finally:
+        if project_working_dir:
+            shutil.rmtree(project_working_dir)
 
-    if not project_exists_func(environment, project_name, region_name):
-        # if not project_exists(environment, project_name, region_name):
-        deploy_action = f'zappa deploy {environment}'
-        docker_run_command(zappa_action=deploy_action)
-    else:
-        update_action = f'zappa update {environment}'
-        docker_run_command(zappa_action=update_action)
+
+def clean():
+    pass
+
+
+def read_zappa_file(zappa_settings_file):
+    zappa_settings_p = zappa_settings_file or helper.default_zappa_settings_path()
+    zappa_settings = helper.read_zappa(zappa_settings_p)
+    return zappa_settings
 
 
 def read_properties(model_dir):
@@ -286,8 +324,8 @@ def run_zappa_command_in_docker(a_uuid: str, project_name: str, project_working_
     src = Path(SRC_PATH)
     requirements_file_path = src / thampi_req_file
     install_prerequisites = 'pip install pip==9.0.3'
+    # install_post = 'pip install zappa==0.45.1 && pip install Flask==0.12.4 && pip install cloudpickle && pip install git+ssh://git@github.com/scoremedia/thampi.git'
     install_post = 'pip install zappa==0.45.1 && pip install Flask==0.12.4 && pip install cloudpickle'
-
     conda_commands = [
         'unset PYTHONPATH',
         'curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh --output /tmp/miniconda_installer.sh',
@@ -317,10 +355,11 @@ def run_zappa_command_in_docker(a_uuid: str, project_name: str, project_working_
             'mode': 'rw',
         },
     }
-    
+
     setup = ['export LC_ALL=en_US.UTF-8',
              'export LANG=en_US.UTF-8',
-             f'cp -r ./.aws /root',  # and delete it as if we keep it here, it will be zipped into the code zip
+             'mv ./.aws /root',  # TODO: and delete it as if we keep it here, it will be zipped into the code zip
+             # 'mv ./.ssh /root',  # TODO: and delete it as if we keep it here, it will be zipped into the code zip
              'cd /tmp',
              'mkdir thampi && cd thampi',
              f'mkdir {project_name} && cd {project_name}',
@@ -372,9 +411,18 @@ def setup_working_directory(a_uuid, project_name, dependency_file: str, project_
     cwd = Path(p_path)
     shutil.copytree(cwd, project_working_dir)
     home = home_path()
-    dest = project_working_dir / AWS_FOLDER
-    src = f'{home}/{AWS_FOLDER}'
-    shutil.copytree(src, dest)
+    dest_aws = project_working_dir / AWS_FOLDER
+    src_aws = f'{home}/{AWS_FOLDER}'
+    shutil.copytree(src_aws, dest_aws)
+
+    # dest_ssh = project_working_dir / SSH_FOLDER
+    # src_ssh = f'{home}/{SSH_FOLDER}'
+    # shutil.copytree(src_ssh, dest_ssh)
+
+    dest_thampi = project_working_dir / constants.THAMPI
+    src_thampi = util.parent_dir(__file__)
+    shutil.copytree(src_thampi, dest_thampi)
+
     shutil.copyfile(dep_path, os.path.join(project_working_dir, thampi_req_file))
     shutil.copyfile(flask_api_file, project_working_dir / constants.THAMPI_APP_FILE)
 
@@ -469,3 +517,8 @@ def default_package_manager() -> str:
 
 def supported_package_manager() -> List[str]:
     return [CONDA, PIP]
+
+
+def check_environment_provided(environment: str) -> ValueError:
+    if not environment:
+        raise ValueError('Environment required. Refer to docs.')

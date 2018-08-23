@@ -3,6 +3,7 @@ from typing import Dict, List
 from collections import ChainMap
 import uuid as u
 import datetime
+import os
 
 
 def filter_in(old_dict: Dict, keys: List[str]):
@@ -50,6 +51,12 @@ def parse_isoformat_str(date_str):
 
 def optional(**kwargs):
     return {k: v for k, v in kwargs.items() if v is not None}
+
+
+def parent_dir(relative_file, level=1):
+    assert level >= 1, "Only positive integers accepted for level. Don't mess with the boss"
+    parent_dots = ['..' for i in range(level)]
+    return os.path.abspath(os.path.join(os.path.dirname(relative_file), *parent_dots))
 
 
 if __name__ == '__main__':

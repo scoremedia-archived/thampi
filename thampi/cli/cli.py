@@ -3,7 +3,7 @@ import click
 # from thampi.cli.deploy import commands as deploy_commands
 # from thampi.cli.serve import commands as serve_commands
 
-from thampi.cli.commands import init, serve, predict, info
+from thampi.cli.commands import init, serve, predict, info, clean
 
 
 @click.group()
@@ -16,6 +16,6 @@ def main():
 # main.add_command(serve_commands.serve)
 
 
-[main.add_command(c) for c in [init, serve, predict, info]]
+[main.add_command(c) for c in [init, serve, predict, info, clean]]
 if __name__ == '__main__':  # pragma: no cover
     main()

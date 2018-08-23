@@ -35,11 +35,11 @@ def get_bucket(environment: str) -> str:
 
 
 def model_key(environment: str, project_name: str) -> str:
-    return aws.s3_key(constants.THAMPI, environment, project_name, 'model', 'current', 'model.pkl')
+    return aws.s3_key(*[constants.THAMPI, environment, project_name] + ['model', 'current', 'model.pkl'])
 
 
 def properties_key(environment: str, project_name: str) -> str:
-    return aws.s3_key(constants.THAMPI, environment, project_name, 'model', 'current', constants.PROPERTIES_FILE)
+    return aws.s3_key(*[constants.THAMPI, environment, project_name] + ['model', 'current', constants.PROPERTIES_FILE])
 
 
 def project_exists(environment: str, project_name: str, region_name: str) -> bool:
