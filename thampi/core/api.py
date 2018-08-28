@@ -421,7 +421,7 @@ def setup_working_directory(a_uuid, project_name, dependency_file: str, project_
     # Remove unnecessary files/folders
     api_file = Path(os.path.join(dest_thampi, 'core', 'api.py'))
     cli_dir = os.path.join(dest_thampi, 'cli')
-    init_file = Path(os.path.join(dest_thampi, 'core', '__init__.py'))
+    init_file = Path(os.path.join(dest_thampi, '__init__.py'))
 
     api_file.unlink()
     shutil.rmtree(cli_dir)
