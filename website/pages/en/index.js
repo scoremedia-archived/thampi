@@ -109,10 +109,10 @@ const Features = props => (
         title: 'Run any library on AWS Lambda',
       },
       {
-        content: 'The content of my second feature',
+        content: 'Limited Conda Support',
         image: imgUrl('docusaurus.svg'),
         imageAlign: 'top',
-        title: 'Feature Two',
+        title: 'Use Pip or Conda*',
       },
     ]}
   </Block>

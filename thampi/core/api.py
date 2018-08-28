@@ -116,7 +116,6 @@ def save_dependencies(path: Path):
 
 
 def remove_thampi(tmp_file):
-    print('tmp_file:' + str(tmp_file))
     with open(tmp_file, 'r') as f:
         lines = f.readlines()
     thampi_line = 'thampi==0.1.0\n'
@@ -415,13 +414,19 @@ def setup_working_directory(a_uuid, project_name, dependency_file: str, project_
     src_aws = f'{home}/{AWS_FOLDER}'
     shutil.copytree(src_aws, dest_aws)
 
-    # dest_ssh = project_working_dir / SSH_FOLDER
-    # src_ssh = f'{home}/{SSH_FOLDER}'
-    # shutil.copytree(src_ssh, dest_ssh)
-
     dest_thampi = project_working_dir / constants.THAMPI
     src_thampi = util.parent_dir(__file__)
     shutil.copytree(src_thampi, dest_thampi)
+
+    # Remove unnecessary files/folders
+    api_file = Path(os.path.join(dest_thampi, 'core', 'api.py'))
+    cli_dir = Path(os.path.join(dest_thampi, 'cli'))
+    init_file = Path(os.path.join(dest_thampi, 'core', '__init__.py'))
+
+    api_file.unlink()
+    cli_dir.rmdir()
+    init_file.unlink()
+    init_file.touch()
 
     shutil.copyfile(dep_path, os.path.join(project_working_dir, thampi_req_file))
     shutil.copyfile(flask_api_file, project_working_dir / constants.THAMPI_APP_FILE)
