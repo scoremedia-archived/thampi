@@ -208,7 +208,7 @@ def get_zappa_settings_filename(model_name: str) -> str:
 @click.argument('environment', required=False)
 # @click.argument('--model_dir')
 @click.option('--model_dir', required=True, help='path to directory containing the model.pkl file')
-@click.option('--utc_time_served', required=False,
+@click.option('--served_time_utc', required=False,
               help='Time in UTC when you want to show as served. E.g. "2018-05-25T17:28:53.354"')
 @click.option('--dependency_file', required=True,
               help='Path to pip requirements file or manually cleaned conda yaml file. See https://conda.io/docs/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually')
@@ -218,20 +218,20 @@ def get_zappa_settings_filename(model_name: str) -> str:
               help='Path to the project root where your code is. If not provided, it is assumed to be  the current working directory.')
 def serve(environment: str,
           model_dir: str,
-          utc_time_served: str = None,
+          served_time_utc: str = None,
           dependency_file: str = None,
           zappa_settings_file: str = None,
           project_dir: str = None):  # pragma: no cover
 
     click.echo('..Waking up The Whale. This will take a while...')
     try:
-        if utc_time_served:
-            utc_time_served_dt = util.parse_isoformat_str(utc_time_served)
+        if served_time_utc:
+            served_time_utc_dt = util.parse_isoformat_str(served_time_utc)
         else:
-            utc_time_served_dt = None
+            served_time_utc_dt = None
         api.serve(environment,
                   model_dir,
-                  utc_time_served=utc_time_served_dt,
+                  served_time_utc=served_time_utc_dt,
                   dependency_file=dependency_file,
                   zappa_settings_file=zappa_settings_file,
                   project_dir=project_dir)

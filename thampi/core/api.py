@@ -159,7 +159,7 @@ def get_project_name(environment, zappa_settings):
 def save(model: Model,
          name: str,
          path: str = None,
-         utc_time_trained: datetime.datetime = None,
+         trained_time_utc: datetime.datetime = None,
          instance_id: str = None,
          tags: Dict = None,
          now_func: Callable[[], datetime.datetime] = None,
@@ -176,7 +176,7 @@ def save(model: Model,
         cloudpickle.dump(model, f)
 
     opts = util.optional(tags=tags)
-    fixed = dict(training_time_utc=utc_time_trained.isoformat() if utc_time_trained else now_func(),
+    fixed = dict(trained_time_utc=trained_time_utc.isoformat() if trained_time_utc else now_func(),
                  instance_id=instance_id or uuid_str_func())
     meta = dict(thampi_data_version='0.1')
     properties = util.dicts(meta, fixed, opts)
@@ -190,7 +190,7 @@ def serve(environment: str,
           dependency_file: str,
           zappa_settings_file: str = None,
           project_dir: str = None,
-          utc_time_served: datetime.datetime = None,
+          served_time_utc: datetime.datetime = None,
           docker_run_func=None,
           setup_working_dir_func=None,
           clean_up_func=None,
@@ -210,7 +210,7 @@ def serve(environment: str,
     project_exists_func = project_exists_func or helper.project_exists
     now_func = now_func or util.utc_now_str
     read_properties_func = read_properties_func or read_properties
-    utc_time_served = utc_time_served.isoformat() if utc_time_served else now_func()
+    served_time_utc = served_time_utc.isoformat() if served_time_utc else now_func()
 
     zappa_settings = read_zappa_file(zappa_settings_file)
 
@@ -226,7 +226,7 @@ def serve(environment: str,
 
     training_properties = read_properties_func(model_dir)
 
-    properties = dict(training_properties, utc_time_served=utc_time_served)
+    properties = dict(training_properties, served_time_utc=served_time_utc)
     stream = json.dumps(properties)
     aws_module.upload_stream_to_s3(stream, bucket, helper.properties_key(environment, project_name))
 

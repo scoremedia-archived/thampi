@@ -69,7 +69,7 @@ class MyTestCase(unittest.TestCase):
         aws_module.upload_to_s3.assert_called_once_with(helper.model_path(model_dir), S3_BUCKET,
                                                         f'thampi/{environment}/{project_name}/model/current/model.pkl')
 
-        stream = f'{{"instance_id": "{instance_id}", "utc_time_served": "{model_date}"}}'
+        stream = f'{{"instance_id": "{instance_id}", "served_time_utc": "{model_date}"}}'
 
         aws_module.upload_stream_to_s3.assert_called_once_with(stream, S3_BUCKET,
                                                                f'thampi/{environment}/{project_name}/model/current/thampi.json')

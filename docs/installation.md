@@ -1,10 +1,17 @@
 ---
-id: contents
-title: Overview
-sidebar_label: Contents
+id: installation
+title: Installation
+sidebar_label: Installation
 ---
 
-* [Installation](installation.md) 
+## Installation
+```python
+pip install thampi
+```
+## Prerequisites
+* [Setup AWS Credentials](https://docs.aws.amazon.com/sdk-for-java/v2/developer-guide/setup-credentials.html)
+* Install Docker(e.g for [Mac](https://docs.docker.com/docker-for-mac/install/))
+* Ensure that the user which calls thampi has *admin* access
 
 ## Benefits
 * Can work on Mac and still deploy to AWS Lambda.

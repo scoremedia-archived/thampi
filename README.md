@@ -12,4 +12,5 @@ To use it:
 
 
 ### Credits
-* Andrew Konrad and theScore Inc. for supporting this project.
+* theScore Inc. for supporting this project.
+* Thampi Logo. Copied from [Bart133](https://commons.wikimedia.org/w/index.php?curid=4780782)
