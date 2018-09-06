@@ -1,6 +1,6 @@
 {
   "docs": {
-    "Thampi": ["contents","installation"],
+    "Thampi": ["contents","installation", "tutorial"],
     "First Category": ["doc2"],
     "Second Category": ["doc3"]
   },
