@@ -103,27 +103,30 @@ const Features = props => (
   <Block layout="fourColumn">
     {[
       {
-        content: 'Thampi uses Docker underneath. So you can work on Mac or Windows and deploy to AWS Lambda(Linux)',
+        content: "With a single command, create a web server that scales, is fault tolerant and zero maintenance.",
         image: imgUrl('docusaurus.svg'),
         imageAlign: 'top',
-        title: 'Run any library on AWS Lambda',
+        title: 'No DevOps',
       },
       {
-        content: 'Limited Conda Support',
+        content: 'You just train the model. Thampi provides all support for serving the model',
         image: imgUrl('docusaurus.svg'),
         imageAlign: 'top',
-        title: 'Use Pip or Conda*',
+        title: 'Focus on your model',
       },
     ]}
   </Block>
 );
 
 const FeatureCallout = props => (
+
   <div
     className="productShowcaseSection paddingBottom"
     style={{textAlign: 'center'}}>
-    <h2>Feature Callout</h2>
-    <MarkdownBlock>These are features of this project</MarkdownBlock>
+    <h2>Use Pip or Conda!</h2>
+    <MarkdownBlock>Supports pip and conda(manually created requirement files)</MarkdownBlock>
+     <h2>Work on Mac</h2>
+    <MarkdownBlock>Work on Mac(or Windows?) and deploy to Linux based AWS Lambda</MarkdownBlock>
   </div>
 );
 
@@ -131,7 +134,7 @@ const LearnHow = props => (
   <Block background="light">
     {[
       {
-        content: 'Talk about learning how to use this',
+        content: 'Learn Thampi with this [tutorial](docs/tutorial)',
         image: imgUrl('docusaurus.svg'),
         imageAlign: 'right',
         title: 'Learn How',
@@ -144,7 +147,7 @@ const TryOut = props => (
   <Block id="try">
     {[
       {
-        content: 'Talk about trying this out',
+        content: '[Here are the installation instruction](docs/installation)',
         image: imgUrl('docusaurus.svg'),
         imageAlign: 'left',
         title: 'Try it Out',
@@ -157,10 +160,11 @@ const Description = props => (
   <Block background="dark">
     {[
       {
-        content: 'This is another description of how this project is useful',
+        content: 'Thampi uses Docker underneath so that you can work on a Mac(or Windows?). It recreates your machine learning project in Linux and compiles all the C libraries(e.g. numpy) for you, allowing you to work on the platform you choose.',
+
         image: imgUrl('docusaurus.svg'),
         imageAlign: 'right',
-        title: 'Description',
+        title: 'Details',
       },
     ]}
   </Block>
@@ -206,8 +210,8 @@ class Index extends React.Component {
         <div className="mainContainer">
           <Features />
           <FeatureCallout />
-          <LearnHow />
           <TryOut />
+          <LearnHow />
           <Description />
           <Showcase language={language} />
         </div>

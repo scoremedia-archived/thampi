@@ -5,7 +5,7 @@ sidebar_label: Tutorial
 ---
 
 # Prerequisites
-* First ensure you have gone through all the [prerequisites](installation.md#prerequisites)
+* First ensure you have gone through all the [installation steps](installation.md)
 * Your python installation should be 3.6, since AWS Lambda supports 3.6 as of now
 
 Let's create a new project `myproject`. We'll use `scikit-learn` as an example but you could use any framework.
@@ -51,7 +51,7 @@ A file zappa_settings.json has been created. If you made a mistake, delete it an
 
 ```
 
-* It has created a file called `zappa_settings.json`. This file is used to by the Zappa framework. You'll note that some defaults have been filled up which are suitable for machine learning projects. For more details on how you can customize `zappa_settings.json`, check out [zappa docs](https://github.com/Miserlou/Zappa#advanced-settings)
+* It has created a file called `zappa_settings.json`. This file is used by the Zappa framework. You'll note that some defaults have been filled up which are suitable for machine learning projects. For more details on how you can customize `zappa_settings.json`, check out [zappa docs](https://github.com/Miserlou/Zappa#advanced-settings)
 
 * Within `zappa_settings.json`, thampi adds a key `thampi`. All thampi specific settings will go here. Note: `zappa` has no idea of `thampi`. It's just a convenient place to store the `thampi` relevant configuration.
 
@@ -72,15 +72,11 @@ class ThampiWrapper(Model):
         self.sklearn_model = sklearn_model
         super().__init__()
 
-    def initialize(self, context) -> None:
-        self.sklearn_model.initialize()
-        pass
-
+    
     def predict(self, args: Dict, context) -> Dict:
         original_input = [args.get('input')]
-
-        return self.sklearn_model.predict(np.array(original_input))
-
+        result = self.sklearn_model.predict(np.array(original_input))
+        return dict(result=list(result)[0])
 
 def train_model():
     iris = datasets.load_iris()
@@ -111,7 +107,7 @@ And then at the terminal run
 python train.py
 ```
 
-In thampi, like `mlflow`, the model artifacts are stored in a directory(i.e. `iris-sklearn`). Storing it in `models` is just arbitrary convention.
+This will create the model. In thampi, like `mlflow`, the model artifacts are stored in a directory(i.e. `iris-sklearn`). Storing it in `models` is just arbitrary convention.
 
 
 ## Serving the model
@@ -119,9 +115,50 @@ In thampi, like `mlflow`, the model artifacts are stored in a directory(i.e. `ir
 ```bash
 thampi serve staging --model_dir=./models/iris-sklearn --dependency_file=./requirements.txt
 ```
-The `serve` command will use `zappa` to create or update a server endpoint
+The `serve` command will use `zappa` to create or update a server endpoint. To see the endpoint,
+do
+```bash
+thampi info staging
+```
+
+You'll see something similar to:
+```bash
+{'url': 'https://8i7a6qtlri.execute-api.us-east-1.amazonaws.com/staging/mymodel/predict'}
+```
+Let's hit the endpoint in the next section.
 
 ## Predict
+You can do a curl like below where you replace `a_url` with the `url` that you receive from `thampi info staging` 
+```bash
+curl -d '{"data": {"input": [5.9, 3.2, 4.8, 1.8]}}' -H "Content-Type: application/json" -X POST a_url
+```
+
+Output:
+```bash
+{
+  "properties": {
+    "instance_id": "9dbc56dd-936d-4dff-953c-8c22267ebe84",
+    "served_time_utc": "2018-09-06T22:03:09.247038",
+    "thampi_data_version": "0.1",
+    "trained_time_utc": "2018-09-06T22:03:04.886644"
+  },
+  "result": {
+    "result": 2
+  }
+}
+
+```
+For convenience, you can also do:
+```bash
+thampi predict staging --data='{"input": [5.9, 3.2, 4.8, 1.8]}'
+```
+where `data` is `json`
+
+The `properties` dictionary is meta-data associated with the model. Most of them are populated using the `save` command. If you want to add custom data (e.g `name` for your model and `version`, you can add it within `tags`)
+
+# Undeploy
+After you are done with your project, this will bring down the server endpoint permanently. Note, we are using a `zappa` command. Zappa offers other relevant commands as well. Refer to the zappa docs. 
 
 ```bash
+zappa undeploy staging
 ```
