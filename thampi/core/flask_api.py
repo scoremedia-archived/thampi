@@ -14,11 +14,12 @@ print('Raj: Init: Global Properties loaded')
 
 @app.route(thampi_instance.predict_route(), methods=['POST'])
 def index():
+    global global_model
     args = json.loads(request.data)
     if not global_model:
         global_model = thampi_instance.load_model()
         print('Raj: Request: Global Properties loaded again')
-    
+
     result = global_model.predict(args.get('data'), thampi_instance.get_context())
     return jsonify(dict(properties=global_properties,
                         result=result))
