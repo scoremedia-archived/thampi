@@ -1,7 +1,9 @@
 print('Raj: Start of Thampi Flask API')
 from flask import Flask, request, jsonify
+
 print('Raj: After Flask Import')
 from thampi.core.thampi_core import Thampi
+
 print('Raj: After Thampi Core Import')
 import json
 
@@ -23,13 +25,16 @@ def index():
     args = json.loads(request.data)
     if not global_model:
         global_model = thampi_instance.load_model()
-        print('Raj: Request: Global Properties loaded again')
+        print('Raj: Request: Global Model loaded again')
 
     print('Raj: Before Predict')
     result = global_model.predict(args.get('data'), thampi_instance.get_context())
     print('Raj: After Predict')
-    return jsonify(dict(properties=global_properties,
-                        result=result))
+    result = jsonify(dict(properties=global_properties,
+                          result=result))
+    print('Raj: Result')
+    print(result)
+    return result
 
 
 # We only need this for local development.
