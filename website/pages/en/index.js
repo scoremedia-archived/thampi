@@ -81,8 +81,7 @@ class HomeSplash extends React.Component {
           <ProjectTitle />
           <PromoSection>
             <Button href="#try">Try It Out</Button>
-            <Button href={docUrl('doc1.html', language)}>Example Link</Button>
-            <Button href={docUrl('doc2.html', language)}>Example Link 2</Button>
+            <Button href={docUrl('contents.html', language)}>Docs</Button>
           </PromoSection>
         </div>
       </SplashContainer>
@@ -125,8 +124,6 @@ const FeatureCallout = props => (
     style={{textAlign: 'center'}}>
     <h2>Use Pip or Conda!</h2>
     <MarkdownBlock>Supports pip and conda(manually created requirement files)</MarkdownBlock>
-     <h2>Work on Mac</h2>
-    <MarkdownBlock>Work on Mac(or Windows?) and deploy to Linux based AWS Lambda</MarkdownBlock>
   </div>
 );
 
@@ -147,7 +144,7 @@ const TryOut = props => (
   <Block id="try">
     {[
       {
-        content: '[Here are the installation instruction](docs/installation)',
+        content: '[Here are the installation instructions](docs/installation)',
         image: imgUrl('docusaurus.svg'),
         imageAlign: 'left',
         title: 'Try it Out',

@@ -118,12 +118,25 @@ def save_dependencies(path: Path):
 def remove_thampi(tmp_file):
     with open(tmp_file, 'r') as f:
         lines = f.readlines()
-    thampi_line = 'thampi==0.1.0\n'
-    if thampi_line in lines:
-        lines.remove(thampi_line)
+
+    result = []
+    for l in lines:
+        if not l.startswith('thampi=='):
+            result.append(l)
 
     with open(tmp_file, 'w') as f:
-        f.writelines(lines)
+        f.writelines(result)
+
+
+# def remove_thampi(tmp_file):
+#     with open(tmp_file, 'r') as f:
+#         lines = f.readlines()
+#     thampi_line = 'thampi==0.1.0\n'
+#     if thampi_line in lines:
+#         lines.remove(thampi_line)
+#
+#     with open(tmp_file, 'w') as f:
+#         f.writelines(lines)
 
 
 def clean_up(environment, zappa_settings):
@@ -138,9 +151,32 @@ def working_project_dir(environment=DEV_ENVIRONMENT, zappa_settings_file=None):
     return working_project_directory(environment, zappa_settings)
 
 
+def project_home():
+    return determine_project_home_path(PROJECT_ENV_VARIABLE, DEFAULT_HOME)
+
+
+def s3_bucket(environment=DEV_ENVIRONMENT, zappa_settings_file=None):
+    zappa_settings = read_zappa_file(zappa_settings_file)
+    return zappa_settings[environment]['s3_bucket']
+
+
 def s3_project_prefix(environment=DEV_ENVIRONMENT, zappa_settings_file=None):
     zappa_settings = read_zappa_file(zappa_settings_file)
-    return None
+    project_name = zappa_settings[environment]['project_name']
+    environments = '{' + ",".join(list(zappa_settings.keys())) + '}'
+    return f"{constants.THAMPI}/{environments}/{project_name}"
+
+
+def s3_project_prefix_list(environment=DEV_ENVIRONMENT, zappa_settings_file=None):
+    zappa_settings = read_zappa_file(zappa_settings_file)
+    project_name = zappa_settings[environment]['project_name']
+
+    environments = zappa_settings.keys()
+    result = []
+    for e in environments:
+        result.append(f"{constants.THAMPI}/{e}/{project_name}")
+
+    return result
 
 
 def working_project_directory(environment, zappa_settings):
@@ -255,8 +291,26 @@ def serve(environment: str,
             shutil.rmtree(project_working_dir)
 
 
-def clean():
-    pass
+def clean(scope: str):
+    if scope == 'project':
+        clean_project()
+    elif scope == 'all':
+        clean_all()
+
+
+def clean_all():
+    project_dir = project_home()
+    if os.path.isdir(project_dir):
+        shutil.rmtree(project_dir)
+
+
+def clean_project(environment=DEV_ENVIRONMENT, zappa_settings_file=None):
+    a_dir = working_project_dir()
+    if os.path.isdir(a_dir):
+        shutil.rmtree(a_dir)
+    bucket = s3_bucket()
+    for p in s3_project_prefix_list(environment, zappa_settings_file):
+        aws.delete_prefix(bucket, p)
 
 
 def read_zappa_file(zappa_settings_file):
@@ -317,19 +371,16 @@ def info(environment: str) -> Dict:
 def run_zappa_command_in_docker(a_uuid: str, project_name: str, project_working_dir, thampi_req_file,
                                 zappa_settings,
                                 zappa_action):
-    # project_working_dir, thampi_req_file, project_name = setup_working_directory(a_uuid, environment, zappa_settings)
     venv = f"venv-{a_uuid}"
     package_manager = zappa_settings[constants.THAMPI]['package_manager']
     src = Path(SRC_PATH)
     requirements_file_path = src / thampi_req_file
     install_prerequisites = 'pip install pip==9.0.3'
-    # install_post = 'pip install zappa==0.45.1 && pip install Flask==0.12.4 && pip install cloudpickle && pip install git+ssh://git@github.com/scoremedia/thampi.git'
     install_post = 'pip install zappa==0.45.1 && pip install Flask==0.12.4 && pip install cloudpickle'
     conda_commands = [
         'unset PYTHONPATH',
         'curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh --output /tmp/miniconda_installer.sh',
         'bash /tmp/miniconda_installer.sh -b',
-        'mkdir /tmp/simple-pyflakes',
         '/root/miniconda3/bin/conda create --name docker-conda python=3.6 -y',
         'source /root/miniconda3/bin/activate docker-conda',
         install_prerequisites,
@@ -358,7 +409,6 @@ def run_zappa_command_in_docker(a_uuid: str, project_name: str, project_working_
     setup = ['export LC_ALL=en_US.UTF-8',
              'export LANG=en_US.UTF-8',
              'mv ./.aws /root',  # TODO: and delete it as if we keep it here, it will be zipped into the code zip
-             # 'mv ./.ssh /root',  # TODO: and delete it as if we keep it here, it will be zipped into the code zip
              'cd /tmp',
              'mkdir thampi && cd thampi',
              f'mkdir {project_name} && cd {project_name}',
@@ -382,20 +432,13 @@ def run_zappa_command_in_docker(a_uuid: str, project_name: str, project_working_
     logs = c
     from pprint import pprint
     pprint(logs.decode().split('\n'))
-    # TODO: set project_working_dir as working_dir for docker
-    # TODO: Delete credentials and other files after deploy
 
 
 def setup_working_directory(a_uuid, project_name, dependency_file: str, project_dir: str = None):
     flask_api_file = Path(core.__path__[0]) / constants.FLASK_FILE
 
     thampi_req_file = thampi_req_file_name(a_uuid)
-    # tmp_dep_path = f'/tmp/{thampi_req_file}'
-    # if dependency_file:
-    #     dep_path = Path(dependency_file)
-    # else:
-    #     dep_path = Path(tmp_dep_path)
-    #     save_dependencies(dep_path)
+
     dep_path = Path(dependency_file)
     # TODO: This is temporary, remove the remove_thampi method!
     remove_thampi(dep_path)
@@ -438,12 +481,6 @@ def setup_working_directory(a_uuid, project_name, dependency_file: str, project_
 
 def thampi_req_file_name(a_uuid):
     return f'thampi-requirements-{a_uuid}'
-
-
-# def get_project_name(environment):
-#     data = read_zappa(constants.ZAPPA_FILE_NAME)
-#     project_name = data[environment][PROJECT_NAME]
-#     return project_name
 
 
 def determine_project_home_path(project_env_variable: str, default_home: str) -> Path:
@@ -524,6 +561,6 @@ def supported_package_manager() -> List[str]:
     return [CONDA, PIP]
 
 
-def check_environment_provided(environment: str) -> ValueError:
+def check_environment_provided(environment: str):
     if not environment:
         raise ValueError('Environment required. Refer to docs.')
