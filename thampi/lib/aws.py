@@ -82,3 +82,9 @@ def get_api_id(lambda_name, region_name):
     return response['StackResourceDetail'].get('PhysicalResourceId', None)
 
 
+def delete_prefix(bucket, prefix):
+    prefix_new = prefix + '/'
+    s3 = resource('s3')
+    b = s3.Bucket(bucket)
+    for o in b.objects.filter(Prefix=prefix_new):
+        o.delete()

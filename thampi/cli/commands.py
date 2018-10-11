@@ -63,17 +63,23 @@ def clean(scope: str):  # pragma: no cover
     """
 
     try:
+        s3_bucket = api.s3_bucket()
         if scope == 'project':
 
-            click.echo(input(f"This will delete the following project related files:\n"
-                             f"Locally:{api.working_project_dir()}\n"
-                             f"S3:{api.s3_project_prefix()}\n"
-                             f"Are you sure?: (default 'n') [y/n]:") or 'n')
+            delete_project = input(f"This will delete the following project related files:\n"
+                                   f"Locally:{api.working_project_dir()}\n"
+                                   f"S3://{s3_bucket}/{api.s3_project_prefix()}\n"
+                                   f"Are you sure?: (default 'n') [y/n]:") or 'n'
+            if delete_project == 'y':
+                api.clean(scope)
         elif scope == 'all':
-            click.echo(input(f"This will delete the following thampi related artifacts:\n"
-                             f"Locally:{project_home}\n"
-                             f"S3 Bucket:{s3_bucket}\n"
-                             f"Are you sure?: (default 'n') [y/n]:") or 'n')
+            click.echo(f"Please inspect the bucket:{s3_bucket} and delete it accordingly\n")
+            delete_thampi = input(f"This will delete the following thampi related artifacts:\n"
+                                  f"Locally:{api.project_home()}\n"
+                                  f"Are you sure?: (default 'n') [y/n]:") or 'n'
+            if delete_thampi == 'y':
+                api.clean(scope)
+
     except SystemExit as e:  # pragma: no cover
         sys.exit(e.code)
     except KeyboardInterrupt:  # pragma: no cover
