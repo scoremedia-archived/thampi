@@ -16,4 +16,4 @@ pip install thampi
 
 # Important
 * Do not install `zappa` or `flask` for your environment for serving models. If you have to use `zappa` or `flask`, consider creating another environment(and it's corresponding `requirements.txt` file)
-* Do not upgrade `zappa` or `flask` if asked to do so. The latest version of `zappa(0.46.1)` does not work for our use case so it's at `0.45.1`. As a `thampi` user, you should not be much affected by that.
+* Do not upgrade `zappa` or `flask` or `pip` if asked to do so. The latest version of `zappa(0.46.1)` does not work for our use case so it's at `0.45.1`. As a `thampi` user, you should not be much affected by that.
