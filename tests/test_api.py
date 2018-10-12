@@ -11,6 +11,8 @@ S3_BUCKET = "zappa-thampi-trial"
 
 class MyTestCase(unittest.TestCase):
     def test_serve(self):
+        import uuid
+        a_random_uuid = str(uuid.uuid4())
         # Given
         environment = 'dev'
         project_name = "thampi-trial"
@@ -23,8 +25,10 @@ class MyTestCase(unittest.TestCase):
         instance_id = 'a_instance_id'
         model_dir = '/tmp/no_model'
 
-        thampi_working_dir = '/tmp/project_dir'
-
+        # thampi_working_dir = '/tmp/project_dir'
+        thampi_working_dir = f'/tmp/{a_random_uuid}'
+        import os
+        os.makedirs(thampi_working_dir)
         data = {"dev": {
             "s3_bucket": S3_BUCKET,
             "project_name": project_name,
@@ -83,6 +87,9 @@ class MyTestCase(unittest.TestCase):
 
         # Cleanup
         Path(zappa_settings_path).unlink()
+        import shutil
+        if os.path.isdir(thampi_working_dir):
+            shutil.rmtree(thampi_working_dir)
 
 
 if __name__ == '__main__':
