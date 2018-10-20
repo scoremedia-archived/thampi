@@ -1,10 +1,6 @@
----
-id: tutorial
-title: Tutorial
-sidebar_label: Tutorial
----
+# Tutorial
 
-# Prerequisites
+## Prerequisites
 * First ensure you have gone through all the [installation steps](installation.md)
 * Your python installation should be 3.6, since AWS Lambda supports 3.6 as of now
 
@@ -13,7 +9,7 @@ Let's create a new project `myproject`. We'll use `scikit-learn` as an example b
 ## Dummy Project
 ### Setup(Pip)
 
-```bash
+```sh
 mkdir myproject && cd myproject
 virtualenv -p python3 venv
 source ./venv/bin/activate
@@ -30,8 +26,12 @@ pip freeze > requirements.txt
 
     *  For the s3 bucket, you can choose to have one bucket for all your thampi applications. Each project(model) is at a different prefix so as long as the projects have unique names, they won't overwrite each other. If you aren't confident of that, you could just give a different bucket for each thampi project.
     * Choose `pip` or `conda` according to your preference.
-```bash
+
+```sh
 thampi init
+```
+```console
+
 Welcome to Thampi!
 -------------
 Enter Model Name. If your model name is 'mymodel', the predict endpoint will be myendpoint.com/mymodel/predict
@@ -51,7 +51,7 @@ A file zappa_settings.json has been created. If you made a mistake, delete it an
 
 ```
 
-* It has created a file called `zappa_settings.json`. This file is used by the Zappa framework. You'll note that some defaults have been filled up which are suitable for machine learning projects. For more details on how you can customize `zappa_settings.json`, check out [zappa docs](https://github.com/Miserlou/Zappa#advanced-settings)
+* It has created a file called `zappa_settings.json`. This file is used by the Zappa framework. You'll note that some defaults have been filled up which are suitable for machine learning projects. A notable setting is `keep_warm` which prevents AWS Lambda from evicting the instance due to lack of use, by pinging the lambda(e.g. every 4 minutes). This is useful in the case when you have very large models. However, you could take it out if you feel that your model is small enough. For more details on how you can customize `zappa_settings.json`, check out [zappa docs](https://github.com/Miserlou/Zappa#advanced-settings)
 
 * Within `zappa_settings.json`, thampi adds a key `thampi`. All thampi specific settings will go here. Note: `zappa` has no idea of `thampi`. It's just a convenient place to store the `thampi` relevant configuration.
 
@@ -103,38 +103,38 @@ if __name__ == '__main__':
 
 
 And then at the terminal run
-```bash
+```sh
 python train.py
 ```
 
-This will create the model. In thampi, like `mlflow`, the model artifacts are stored in a directory(i.e. `iris-sklearn`). Storing it in `models` is just arbitrary convention.
+This will create the model. In thampi, like `mlflow`, the model artifacts are stored in a directory(i.e. `iris-sklearn`). Storing it in the `models` directory is just arbitrary convention.
 
 
 ## Serving the model
 
-```bash
+```sh
 thampi serve staging --model_dir=./models/iris-sklearn --dependency_file=./requirements.txt
 ```
 The `serve` command will use `zappa` to create or update a server endpoint. To see the endpoint,
 do
-```bash
+```sh
 thampi info staging
 ```
 
 You'll see something similar to:
-```bash
+```sh
 {'url': 'https://8i7a6qtlri.execute-api.us-east-1.amazonaws.com/staging/mymodel/predict'}
 ```
 Let's hit the endpoint in the next section.
 
 ## Predict
 You can do a curl like below where you replace `a_url` with the `url` that you receive from `thampi info staging` 
-```bash
+```sh
 curl -d '{"data": {"input": [5.9, 3.2, 4.8, 1.8]}}' -H "Content-Type: application/json" -X POST a_url
 ```
 
 Output:
-```bash
+```console
 {
   "properties": {
     "instance_id": "9dbc56dd-936d-4dff-953c-8c22267ebe84",
@@ -148,17 +148,18 @@ Output:
 }
 
 ```
+
 For convenience, you can also do:
-```bash
+```sh
 thampi predict staging --data='{"input": [5.9, 3.2, 4.8, 1.8]}'
 ```
-where `data` is `json`
+where `data` is of `json` format.
 
 The `properties` dictionary is meta-data associated with the model. Most of them are populated using the `save` command. If you want to add custom data (e.g `name` for your model and `version`, you can add it within `tags`)
 
-# Undeploy
+## Undeploy
 After you are done with your project, this will bring down the server endpoint permanently. Note, we are using a `zappa` command. Zappa offers other relevant commands as well. Refer to the zappa docs. 
 
-```bash
+```sh
 zappa undeploy staging
 ```
