@@ -1,3 +1,10 @@
+import sys
+from pathlib import Path
+
+p = Path(__file__).parents[1]
+sys.path.insert(0, p)
+import thampi
+
 from recommonmark.parser import CommonMarkParser
 # -*- coding: utf-8 -*-
 #
@@ -21,11 +28,11 @@ from recommonmark.parser import CommonMarkParser
 # -- Project information -----------------------------------------------------
 
 project = 'thampi'
-copyright = '2018, Rajiv Abraham'
-author = 'Rajiv Abraham'
+copyright = '2018, theScore Inc.'
+author = 'theScore Inc.'
 
 # The short X.Y version
-version = ''
+version = thampi.__version__
 # The full version, including alpha/beta/rc tags
 release = ''
 
@@ -85,7 +92,7 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -140,7 +147,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'thampi.tex', 'thampi Documentation',
-     'Rajiv Abraham', 'manual'),
+     'theScore Inc.', 'manual'),
 ]
 
 

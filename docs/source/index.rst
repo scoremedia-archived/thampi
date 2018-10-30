@@ -11,6 +11,7 @@ Thampi
    overview
    installation
    tutorial
+   Thampi Local API <thampi_local_api>
    design
 
 
