@@ -59,5 +59,17 @@ def parent_dir(relative_file, level=1):
     return os.path.abspath(os.path.join(os.path.dirname(relative_file), *parent_dots))
 
 
+def load_local_model(model_path, model_file):
+    import pickle
+    with open(os.path.join(model_path, model_file), "rb") as f:
+        model = pickle.load(f)
+
+    return model
+
+
+def load_local_file(path, filename):
+    return open(os.path.join(path, filename), "rb").read()
+
+
 if __name__ == '__main__':
     print(utc_now().isoformat())
