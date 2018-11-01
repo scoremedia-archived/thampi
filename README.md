@@ -1,8 +1,11 @@
 # thampi
 
-[Experimental. Breaking Changes Possible] Create a Machine Learning Prediction Server on AWS Lambda.
+Create a Machine Learning Prediction Server on AWS Lambda. https://thampi.readthedocs.io/en/latest/
 
 
+
+# Documentation
+* Check out the documentation [here](https://thampi.readthedocs.io/en/latest/)
 
 # Usage
 
@@ -13,4 +16,3 @@ To use it:
 
 ### Credits
 * theScore Inc. for supporting this project.
-* Thampi Logo. Copied from [Bart133](https://commons.wikimedia.org/w/index.php?curid=4780782)

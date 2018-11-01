@@ -1,3 +1,8 @@
+"""
+This is the programmatic interface of `thampi` which closely maps to the command line interface.
+For e.g. On the command line, `thampi serve` corresponds closely to the python method `serve` in  `thampi.core.api`.
+"""
+
 from pathlib import Path
 from typing import Dict, Callable, List
 
@@ -19,6 +24,7 @@ import slugify
 import datetime
 import cloudpickle
 import os
+import sys
 
 import re
 
@@ -53,41 +59,6 @@ def match_str(a_str, a_pattern):
     raise ValueError(f"String {a_str} does not match pattern:{a_pattern.pattern}")
 
 
-# def thampi_init():
-#     '''
-#     Read Zappa file. If it does not exist, raise file not found exception
-#     take dev settings, and create staging and production and add default settings
-#     tmp store the zappa_settings file
-#     write the new zappa_settings file
-#     delete the temp zappa_settings file
-#     :return:
-#     '''
-#     # cwd = Path(os.getcwd())
-#     file_name = constants.ZAPPA_FILE_NAME
-#     # zappa_settings_path = cwd / file_name
-#     #
-#     # if not zappa_settings_path.is_file():
-#     #     raise ValueError(f"Expect {file_name} to be in the current working directory. Run 'thampi init' first.")
-#     #
-#     # # with open(zappa_settings_path) as f:
-#     # #     data = json.load(f)
-#     # data = json.load(zappa_settings_path.open())
-#     # zappa_file = constants.ZAPPA_FILE_NAME
-#
-#     data = read_zappa(default_zappa_settings_path())
-#     dev_environment = 'dev'
-#     if dev_environment not in data:
-#         raise ValueError(
-#             f"Didn't find {dev_environment} as a key in {file_name}.\n"
-#             f"- Delete {file_name}\n"
-#             f"- Run 'thampi init' again and keep dev as the default environment/stage")
-#     dev_data = data[dev_environment]
-#     data['staging'] = settings(data, dev_data, 'staging')
-#     data['production'] = settings(data, dev_data, 'production')
-#
-#     with open(default_zappa_settings_path(), 'w') as f:
-#         json.dump(data, f, indent=4, ensure_ascii=False)
-
 def thampi_init(all_config: Dict):
     data = dict()
     data['dev'] = all_config
@@ -107,6 +78,15 @@ def check_init_variant(zappa_settings_path: str = None):
 
 
 def init(all_config: Dict):
+    """
+
+    :param all_config: Dictionary with the following keys
+    core_dict = {"app_function": constants.THAMPI_APP,
+                 "runtime": "python3.6"}
+     input_dict = dict(project_name=model_name, profile_name=profile_name, aws_region=profile_region,
+              s3_bucket=bucket, thampi=dict(package_manager=package_manager))
+    :return:
+    """
     thampi_init(all_config)
 
 
@@ -200,6 +180,20 @@ def save(model: Model,
          tags: Dict = None,
          now_func: Callable[[], datetime.datetime] = None,
          uuid_str_func: Callable[[], str] = None):
+    """
+    Saves the `Model` wrapper that wraps over your underyling trained model(e.g. `tensorflow`, `pytorch`).
+
+    :param model: The Model object which wraps your underlying trained model.
+    :param name: The directory which will contain all the model artifacts.
+    :param path: The path where you would like to save the model directory.
+    :param trained_time_utc: You can specify a training time.
+    :param instance_id: An unique id to identify this particular training. The same script run on two separate
+        occassions should ideally have different instance ids.
+    :param tags: Key value pairs that you can associate with your model instance.
+    :param now_func: For testing purposes only.
+    :param uuid_str_func: For testing purposes only.
+
+    """
     now_func = now_func or util.utc_now_str
     uuid_str_func = uuid_str_func or util.uuid
 
@@ -236,6 +230,29 @@ def serve(environment: str,
           now_func=None,
           read_properties_func: Callable[[str], Dict] = None
           ):
+    """
+    Serves the model directory and updates the AWS Lambda instance (or creates it if it does not exist).
+
+    :param environment: corresponds to the highest key in `zappa_settings.json` e.g `staging` or `production`.
+    :param model_dir: The directory which contains the model artifacts (i.e `model.pkl`, `thampi.json`).
+    :param dependency_file: Usually path to a `requirements.txt` for pip or the conda equivalent. Note, the conda file
+     has to be manually created. See the `Limitations` section in the `Overview` document.
+    :param zappa_settings_file: Path to `zappa_settings.json` file.
+    :param project_dir: The base directory for all the helper data/files/modules that may be called within your
+     model.pkl file.
+    :param served_time_utc: Explicitly set a time that it was served.
+
+
+    :param docker_run_func: For Testing purposes only
+    :param setup_working_dir_func: For Testing purposes only
+    :param clean_up_func: For Testing purposes only
+    :param uuid_str_func: For Testing purposes only
+    :param aws_module: For Testing purposes only
+    :param project_exists_func: For Testing purposes only
+    :param now_func: For Testing purposes only
+    :param read_properties_func: For Testing purposes only
+    :return: None
+    """
     project_working_dir = None
     check_environment_provided(environment=environment)
     docker_run_func = docker_run_func or run_zappa_command_in_docker
@@ -292,6 +309,14 @@ def serve(environment: str,
 
 
 def clean(scope: str):
+    """
+    Clean up `thampi` relevant files.
+    NOTE:  it won't delete the S3 bucket associated with this project. You'll have to do that manually.
+
+    :param scope: `project` or `all`. `project` will only clean up the resources for this project. `all` is for the
+        entire `thampi` installation locally.
+
+    """
     if scope == 'project':
         clean_project()
     elif scope == 'all':
@@ -332,7 +357,15 @@ def read_properties(model_dir):
 
 # (thampi-env) ➜  thampi PYTHONPATH=. python thampi/cli/cli.py predict staging   --args a=1,b=2,c=33
 def predict(environment: str, data: Dict) -> Dict:
-    import sys
+    """
+    A convenience method to invoke and test the AWS Lambda instance endpoint.
+
+    :param environment: corresponds to the highest key in `zappa_settings.json` e.g `staging` or `production`.
+    :param data: A dictionary that is send to the AWS Lambda endpoint and directly to the `predict` method in your model
+     file
+    :return: Your prediction
+
+    """
     zappa_settings = helper.read_zappa(helper.default_zappa_settings_path())
     project_name = zappa_settings[environment][constants.PROJECT_NAME]
     region_name = zappa_settings[environment][constants.REGION]
@@ -353,6 +386,14 @@ def predict(environment: str, data: Dict) -> Dict:
 
 
 def info(environment: str) -> Dict:
+    """
+    Convenience method to display useful information about your settings based on your environment.
+
+    :param environment: corresponds to the highest key in `zappa_settings.json` e.g `staging` or `production`.
+
+    :return: Data about your instance based on `environment`.
+
+    """
     zappa_settings = helper.read_zappa(helper.default_zappa_settings_path())
     project_name = zappa_settings[environment][constants.PROJECT_NAME]
     region_name = zappa_settings[environment][constants.REGION]
