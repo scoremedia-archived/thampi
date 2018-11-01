@@ -1,9 +1,6 @@
 import sys
 from pathlib import Path
 
-p = Path(__file__).parents[1]
-sys.path.insert(0, p)
-import thampi
 
 from recommonmark.parser import CommonMarkParser
 # -*- coding: utf-8 -*-
@@ -32,7 +29,7 @@ copyright = '2018, theScore Inc.'
 author = 'theScore Inc.'
 
 # The short X.Y version
-version = thampi.__version__
+version = "0.1"
 # The full version, including alpha/beta/rc tags
 release = ''
 
