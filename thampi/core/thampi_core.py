@@ -1,4 +1,4 @@
-from thampi.lib import aws
+from thampi.lib import aws, util
 from thampi.core import helper
 import os
 import json
