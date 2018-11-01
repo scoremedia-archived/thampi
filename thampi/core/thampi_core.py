@@ -9,7 +9,7 @@ class Thampi(object):
         self.app = app
         self.project_name = os.environ['PROJECT']
         self.environment = os.environ['STAGE']
-        self.local_model_path = os.environ['LOCAL_MODEL_PATH']
+        self.local_model_path = os.environ.get('LOCAL_MODEL_PATH', None)
         self.bucket = helper.get_bucket(self.environment)
         self.model_key = helper.model_key(self.environment, self.project_name)
         self.properties_key = helper.properties_key(self.environment, self.project_name)
