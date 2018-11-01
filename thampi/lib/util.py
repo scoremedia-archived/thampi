@@ -4,6 +4,7 @@ from collections import ChainMap
 import uuid as u
 import datetime
 import os
+import pickle
 
 
 def filter_in(old_dict: Dict, keys: List[str]):
@@ -60,7 +61,6 @@ def parent_dir(relative_file, level=1):
 
 
 def load_local_model(model_path, model_file):
-    import pickle
     with open(os.path.join(model_path, model_file), "rb") as f:
         model = pickle.load(f)
 
