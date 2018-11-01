@@ -4,6 +4,7 @@ from collections import ChainMap
 import uuid as u
 import datetime
 import os
+import pickle
 
 
 def filter_in(old_dict: Dict, keys: List[str]):
@@ -57,6 +58,17 @@ def parent_dir(relative_file, level=1):
     assert level >= 1, "Only positive integers accepted for level. Don't mess with the boss"
     parent_dots = ['..' for i in range(level)]
     return os.path.abspath(os.path.join(os.path.dirname(relative_file), *parent_dots))
+
+
+def load_local_model(model_path, model_file):
+    with open(os.path.join(model_path, model_file), "rb") as f:
+        model = pickle.load(f)
+
+    return model
+
+
+def load_local_file(path, filename):
+    return open(os.path.join(path, filename), "rb").read()
 
 
 if __name__ == '__main__':
