@@ -11,7 +11,9 @@ Thampi
    overview
    installation
    tutorial
+   Thampi Model API <thampi_model_api>
    Thampi Local API <thampi_local_api>
+   Thampi Context API <thampi_context_api>
    design
 
 
