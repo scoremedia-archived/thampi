@@ -88,10 +88,8 @@ from sklearn import datasets
 from typing import Dict
 import thampi
 from sklearn.neighbors import KNeighborsClassifier
-from thampi.core.model import Model
 
-
-class ThampiWrapper(Model):
+class ThampiWrapper(thampi.Model):
     def __init__(self, sklearn_model):
         self.sklearn_model = sklearn_model
         super().__init__()
