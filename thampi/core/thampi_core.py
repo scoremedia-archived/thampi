@@ -32,8 +32,14 @@ class Thampi(object):
 
 
 class ThampiContext(object):
+    """
+    In most cases, you don't need to access the ThampiContext object. It's mostly here for futureproofing the API.
+    """
     def __init__(self, app):
         self._app = app
 
     def get_app(self):
+        """
+        :return: Returns the Flask App object.
+        """
         return self._app

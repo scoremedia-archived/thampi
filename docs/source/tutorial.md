@@ -9,7 +9,7 @@ Let's create a new project `myproject`. We'll use `scikit-learn` as an example b
 ## Dummy Project
 ### Setup(Pip)
 
-```sh
+```console
 mkdir myproject && cd myproject
 virtualenv -p python3 venv
 source ./venv/bin/activate
@@ -18,6 +18,30 @@ pip install scikit-learn
 pip install numpy
 pip install scipy
 pip freeze > requirements.txt
+```
+
+### Setup(Conda)
+Note: This is one way of creating a conda environment. Please use the conventional way if you are comfortable in that style.
+
+```console
+mkdir myproject && cd myproject
+# Create a  conda environment inside the directory myproject
+conda create --prefix=venv python=3.6.7
+pip install thampi
+pip install scikit-learn
+pip install numpy
+pip install scipy
+```
+
+**IMPORTANT**: `thampi` only supports conda requirements files [crafted by hand](https://conda.io/docs/user-guide/tasks/manage-environments.html#create-env-file-manually). So, let's manually create a requirements file with the above dependencies as shown below and save it as `requirements.txt`. The versions will change but you get the idea.
+
+```
+name: thampi-tutorial
+dependencies:
+  - thampi=0.1.0
+  - numpy=1.15.*
+  - scikit-learn=0.20.0
+  - scipy=1.1.0 
 ```
 
 
@@ -99,7 +123,8 @@ if __name__ == '__main__':
 
 ```
 
-* The above code first trains the `sklearn` model as `knn`. To make the `thampi` web framework send the request data to the model, we wrap `knn` in `ThampiWrapper`, a class which implements the `Model` interface. The data sent to the serving endpoint will be passed by `thampi` to the `predict` method as `args`. Likewise, one can wrap models of other libraries as well.
+* The above code first trains the `sklearn` model as `knn`. To make the `thampi` web framework send the request data to the model, we wrap `knn` in `ThampiWrapper`, a class which implements the `Model` interface. The data sent to the serving endpoint will be passed by `thampi` to the `predict` method as `args`. Likewise, one can wrap models of other libraries as well. Ignore the `context` argument in the `predict` method for now. The `context` object sends in the `Flask` application object(and others in the future) which is probably not required for most of the use cases for now.
+ 
 
 
 And then at the terminal run
