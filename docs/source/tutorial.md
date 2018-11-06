@@ -98,7 +98,7 @@ class ThampiWrapper(thampi.Model):
     def predict(self, args: Dict, context) -> Dict:
         original_input = [args.get('input')]
         result = self.sklearn_model.predict(np.array(original_input))
-        return dict(result=list(result)[0])
+        return dict(result=int(list(result)[0]))
 
 def train_model():
     iris = datasets.load_iris()
@@ -121,8 +121,7 @@ if __name__ == '__main__':
 
 ```
 
-* The above code first trains the `sklearn` model as `knn`. To make the `thampi` web framework send the request data to the model, we wrap `knn` in `ThampiWrapper`, a class which implements the `Model` interface. The data sent to the serving endpoint will be passed by `thampi` to the `predict` method as `args`. Likewise, one can wrap models of other libraries as well. Ignore the `context` argument in the `predict` method for now. The `context` object sends in the `Flask` application object(and others in the future) which is probably not required for most of the use cases for now.
- 
+* The above code first trains the `sklearn` model as `knn`. To make the `thampi` web framework send the request data to the model, we wrap `knn` in `ThampiWrapper`, a class which implements the `thampi.Model` interface. The data sent to the serving endpoint will be passed by `thampi` to the `predict` method as `args`. Likewise, one can wrap models of other libraries as well. Ignore the `context` argument in the `predict` method for now. The `context` object sends in the `Flask` application object(and others in the future) which is probably not required for most of the use cases for now.
 
 
 And then at the terminal run
@@ -130,15 +129,18 @@ And then at the terminal run
 python train.py
 ```
 
-This will create the model. In thampi, like `mlflow`, the model artifacts are stored in a directory(i.e. `iris-sklearn`). Storing it in the `models` directory is just arbitrary convention.
+This will create the model and save it locally using `thampi.save`. In `thampi`, like `mlflow`, the model artifacts are stored in a directory(i.e. `iris-sklearn`). Storing it in the `models` directory is just arbitrary convention.
+
 
 
 ## Serving the model
+Now it's time to upload the model to AWS Lambda. All you have to provide is the `requirements.txt` file along with the above trained `./models/iris-sklearn` directory.
 
 ```sh
 thampi serve staging --model_dir=./models/iris-sklearn --dependency_file=./requirements.txt
 ```
-The `serve` command will use `zappa` to create or update a server endpoint. To see the endpoint,
+
+The `serve` command will use `zappa` internally to create or update a server endpoint. To see the endpoint,
 do
 ```sh
 thampi info staging
@@ -151,10 +153,13 @@ You'll see something similar to:
 Let's hit the endpoint in the next section.
 
 ## Predict
-You can do a curl like below where you replace `a_url` with the `url` that you receive from `thampi info staging` 
+You can do a curl like below where you replace `a_url` with the `url` that you receive from `thampi info staging`
+
 ```sh
 curl -d '{"data": {"input": [5.9, 3.2, 4.8, 1.8]}}' -H "Content-Type: application/json" -X POST a_url
 ```
+`data` is a keyword here. Anything passed to `data` will be send along to your model. The dictionary with the key `input` depends on your application. It could have been something else like `features` for e.g. If you remember from the `ThampiWrapper` code above, since we use `input`, our code reads the data as `args.get('input')`
+
 
 Output:
 ```console
@@ -180,9 +185,13 @@ where `data` is of `json` format.
 
 The `properties` dictionary is meta-data associated with the model. Most of them are populated using the `save` command. If you want to add custom data (e.g `name` for your model and `version`, you can add it within `tags`)
 
+
 ## Undeploy
-After you are done with your project, this will bring down the server endpoint permanently. Note, we are using a `zappa` command. Zappa offers other relevant commands as well. Refer to the zappa docs. 
+After you are done with your project, the `zappa` command will bring down the server endpoint permanently. Note, we are using a `zappa` command. Zappa offers other relevant commands as well. Refer to the zappa docs. `thampi` offers a `cleanup` command as well which cleans up `thampi` relevant files locally and remotely where possible. 
 
 ```sh
 zappa undeploy staging
+thampi clean --scope=project  # or --scope=all
 ```
+
+NOTE: You may still have to clean up/delete the S3 bucket mentioned in `zappa_settings.json` for now.
