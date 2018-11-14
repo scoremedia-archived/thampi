@@ -33,10 +33,6 @@ class Thampi(object):
             result = aws.get_s3_object(self.bucket, self.properties_key)
         return json.loads(result)
 
-    def load_properties(self):
-        result = aws.get_s3_object(self.bucket, self.properties_key)
-        return json.loads(result)
-
     def predict_route(self) -> str:
         return self._predict_route
 
